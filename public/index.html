@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>工时查询</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; max-width: 960px; margin: 0 auto; padding: 16px; }
+    h2 { margin-top: 0; }
+    .form-row { margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; }
+    .form-row label { min-width: 90px; margin-right: 8px; }
+    .form-row input,
+    .form-row select,
+    .form-row button { padding: 4px 8px; }
+    button { cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: 14px; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+    th { background: #f5f5f5; }
+    #summary { margin-top: 12px; font-weight: 500; }
+    #loading { margin-top: 8px; color: #666; font-size: 14px; display: none; }
+  </style>
+</head>
+<body>
+  <h2>工时查询</h2>
+  <p style="font-size: 14px; color: #666;">
+    选择时间范围和人员后点击“查询”。如果不选人员，则查询所有人。
+  </p>
+
+  <div class="form-row">
+    <label for="startDate">开始日期：</label>
+    <input type="date" id="startDate" />
+  </div>
+
+  <div class="form-row">
+    <label for="endDate">结束日期：</label>
+    <input type="date" id="endDate" />
+  </div>
+
+  <div class="form-row">
+    <label for="person">人员：</label>
+    <select id="person">
+      <option value="">（全部）</option>
+      <!--
+        这里暂时写死一些示例名字。你可以根据公司实际情况填写，
+        值必须与 Bitable 里“人员 Applicant”字段的内容一致。
+      -->
+      <option value="张三">张三</option>
+      <option value="李四">李四</option>
+      <option value="王五">王五</option>
+      <!-- 需要更多人就继续加 -->
+    </select>
+  </div>
+
+  <div class="form-row">
+    <button id="queryBtn">查询</button>
+  </div>
+
+  <div id="loading">查询中，请稍候...</div>
+
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>项目</th>
+        <th>开始时间</th>
+        <th>结束时间</th>
+        <th>人员</th>
+        <th>工时</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <p id="summary"></p>
+
+  <script>
+    const queryBtn = document.getElementById('queryBtn');
+    const loadingEl = document.getElementById('loading');
+    const table = document.getElementById('resultTable');
+    const tbody = table.querySelector('tbody');
+    const summaryEl = document.getElementById('summary');
+
+    queryBtn.addEventListener('click', async () => {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const person = document.getElementById('person').value;
+
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      if (person) params.append('person', person);
+
+      loadingEl.style.display = 'block';
+      summaryEl.textContent = '';
+      tbody.innerHTML = '';
+      table.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/timesheet?' + params.toString());
+        const data = await res.json();
+
+        if (data.code !== 0) {
+          alert('查询失败，请稍后再试');
+          loadingEl.style.display = 'none';
+          return;
+        }
+
+        const records = data.data || [];
+        let totalHours = 0;
+
+        records.forEach((item) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${item.date || ''}</td>
+            <td>${item.project || ''}</td>
+            <td>${item.startTime || ''}</td>
+            <td>${item.endTime || ''}</td>
+            <td>${item.person || ''}</td>
+            <td>${item.hours || 0}</td>
+          `;
+          tbody.appendChild(tr);
+
+          const h = parseFloat(item.hours) || 0;
+          totalHours += h;
+        });
+
+        if (records.length) {
+          table.style.display = 'table';
+          summaryEl.textContent = `共 ${records.length} 条记录，总工时：${totalHours.toFixed(2)} 小时`;
+        } else {
+          summaryEl.textContent = '没有查询到记录';
+        }
+      } catch (err) {
+        console.error(err);
+        alert('网络错误或服务器异常，请稍后再试');
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
