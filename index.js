@@ -1,7 +1,7 @@
 // index.js
 // Lark Bitable 工时查询服务：
-// - /api/timesheet  按日期/人员查询打卡记录
-// - /api/people     从打卡记录表中汇总所有出现过的“人员 Applicant”
+// - /api/timesheet  按日期/人员查询打卡记录（用“人员姓名 NameText”做筛选）
+// - /api/people     从打卡记录表中汇总所有出现过的“人员姓名 NameText”
 
 const express = require('express');
 const axios = require('axios');
@@ -89,13 +89,13 @@ async function listBitableRecords({ appToken, tableId, filter }) {
 //
 // @param startDate: "YYYY-MM-DD"
 // @param endDate:   "YYYY-MM-DD"
-// @param person:    与“人员 Applicant”字段里的显示值一致
+// @param person:    与“人员姓名 NameText”字段里的显示值一致
 //
 async function queryTimesheetRecords({ startDate, endDate, person }) {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
 
-  // 构造 filter 公式（注意字段名要跟 Bitable 一致）
+  // 构造 filter 公式（注意字段名要跟 Bitable 完全一致）
   const filters = [];
   if (startDate) {
     filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
@@ -104,7 +104,8 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
     filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
   }
   if (person) {
-    filters.push(`CurrentValue.[人员 Applicant] = "${person}"`);
+    // 这里改成用“人员姓名 NameText”做筛选
+    filters.push(`CurrentValue.[人员姓名 NameText] = "${person}"`);
   }
 
   let filterStr = '';
@@ -132,7 +133,8 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
       project: normalize(f['项目 Project']),
       startTime: normalize(f['开工时间 Start Time']),
       endTime: normalize(f['结束时间 End Time']),
-      person: normalize(f['人员 Applicant']),
+      // 关键：这里也改成用“人员姓名 NameText”
+      person: normalize(f['人员姓名 NameText']),
       hours: Number(f['工时'] || 0),
     };
   });
@@ -140,7 +142,7 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   return mapped;
 }
 
-// ========== 从打卡记录表中读取所有出现过的人员 ==========
+// ========== 从打卡记录表中读取所有出现过的人员姓名 ==========
 async function queryAllPersons() {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
@@ -155,16 +157,12 @@ async function queryAllPersons() {
 
   for (const r of records) {
     const f = r.fields || {};
-    let v = f['人员 Applicant'];
+    let v = f['人员姓名 NameText']; // 直接读纯文本姓名
 
-    // 可能是字符串，也可能是数组（关联、多选）
     if (Array.isArray(v)) {
       v.forEach((item) => {
         if (typeof item === 'string') {
           personSet.add(item);
-        } else if (item && typeof item === 'object') {
-          if (item.text) personSet.add(item.text);
-          if (item.name) personSet.add(item.name);
         }
       });
     } else if (typeof v === 'string') {
