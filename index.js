@@ -1,7 +1,7 @@
 // index.js
-// Lark Bitable 工时查询服务：
-// - /api/timesheet  按日期/人员查询打卡记录（用“人员姓名 NameText”做筛选）
-// - /api/people     从打卡记录表中汇总所有出现过的“人员姓名 NameText”
+// Lark Bitable 工时查询服务
+// - /api/timesheet  按日期/人员查询打卡记录
+// - /api/people     获取人员列表（优先用人员名单表，无则从打卡表汇总）
 
 const express = require('express');
 const axios = require('axios');
@@ -10,18 +10,16 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 静态文件服务：用于前端页面（public/index.html）
+// ===== 静态页面 =====
 app.use(express.static('public'));
 
-// ========== Lark tenant_access_token 缓存 ==========
+// ===== Lark tenant_access_token 缓存 =====
 let cachedToken = null;
-let tokenExpireAt = 0; // 时间戳（毫秒）
+let tokenExpireAt = 0; // ms
 
 async function getTenantAccessToken() {
   const now = Date.now();
-  if (cachedToken && now < tokenExpireAt) {
-    return cachedToken;
-  }
+  if (cachedToken && now < tokenExpireAt) return cachedToken;
 
   const resp = await axios.post(
     'https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal',
@@ -39,11 +37,11 @@ async function getTenantAccessToken() {
 
   cachedToken = resp.data.tenant_access_token;
   const expireSeconds = resp.data.expire || 3600;
-  tokenExpireAt = now + (expireSeconds - 60) * 1000; // 提前 60 秒过期
+  tokenExpireAt = now + (expireSeconds - 60) * 1000;
   return cachedToken;
 }
 
-// 通用：调用 Bitable List Records
+// ===== 通用：读取 Bitable 记录 =====
 async function listBitableRecords({ appToken, tableId, filter }) {
   const token = await getTenantAccessToken();
   let pageToken = undefined;
@@ -52,8 +50,7 @@ async function listBitableRecords({ appToken, tableId, filter }) {
   do {
     const params = {
       page_size: 500,
-      // 关键：让返回值里的 key 使用“字段名”而不是 field_id
-      field_names: true,
+      field_names: true, // 用字段名作为 key
     };
     if (filter) params.filter = filter;
     if (pageToken) params.page_token = pageToken;
@@ -75,27 +72,23 @@ async function listBitableRecords({ appToken, tableId, filter }) {
     const items = data.items || [];
     allRecords.push(...items);
 
-    if (data.has_more) {
-      pageToken = data.page_token;
-    } else {
-      pageToken = undefined;
-    }
+    pageToken = data.has_more ? data.page_token : undefined;
   } while (pageToken);
 
   return allRecords;
 }
 
-// ========== 查询工时记录 ==========
-//
-// @param startDate: "YYYY-MM-DD"
-// @param endDate:   "YYYY-MM-DD"
-// @param person:    与“人员姓名 NameText”字段里的显示值一致
-//
+// ===== 工时查询逻辑 =====
+
+// 允许通过环境变量指定“工时报表里用于显示/筛选人的字段名”
+// 默认用：人员姓名 NameText
+const TIMESHEET_PERSON_FIELD_NAME =
+  process.env.TIMESHEET_PERSON_FIELD_NAME || '人员姓名 NameText';
+
 async function queryTimesheetRecords({ startDate, endDate, person }) {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
 
-  // 构造 filter 公式（注意字段名要跟 Bitable 完全一致）
   const filters = [];
   if (startDate) {
     filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
@@ -104,14 +97,11 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
     filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
   }
   if (person) {
-    // 这里改成用“人员姓名 NameText”做筛选
-    filters.push(`CurrentValue.[人员姓名 NameText] = "${person}"`);
+    // 用“人员姓名 NameText”做筛选（或你在 env 里指定的字段）
+    filters.push(`CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`);
   }
 
-  let filterStr = '';
-  if (filters.length > 0) {
-    filterStr = 'AND(' + filters.join(',') + ')';
-  }
+  const filterStr = filters.length ? 'AND(' + filters.join(',') + ')' : '';
 
   const records = await listBitableRecords({
     appToken,
@@ -128,13 +118,18 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
       return v;
     };
 
+    // 如果你忘了建“人员姓名 NameText”，尝试从其它字段兜底一下
+    const personValue =
+      f[TIMESHEET_PERSON_FIELD_NAME] ||
+      f['人员姓名 NameText'] ||
+      f['人员 Applicant'];
+
     return {
       date: normalize(f['日期 Date']),
       project: normalize(f['项目 Project']),
       startTime: normalize(f['开工时间 Start Time']),
       endTime: normalize(f['结束时间 End Time']),
-      // 关键：这里也改成用“人员姓名 NameText”
-      person: normalize(f['人员姓名 NameText']),
+      person: normalize(personValue),
       hours: Number(f['工时'] || 0),
     };
   });
@@ -142,43 +137,102 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   return mapped;
 }
 
-// ========== 从打卡记录表中读取所有出现过的人员姓名 ==========
-async function queryAllPersons() {
-  const appToken = process.env.BITABLE_APP_TOKEN;
-  const tableId = process.env.BITABLE_TABLE_ID;
+// ===== 人员列表逻辑 =====
+//
+// 优先来源 1：单独的“人员名单表”
+//   通过三个 env 指定：
+//   - PEOPLE_APP_TOKEN
+//   - PEOPLE_TABLE_ID
+//   - PEOPLE_NAME_FIELD （默认 "姓名"）
+//
+// 如果没有配置上述 env，则来源 2：工时报表里的“人员姓名 NameText”字段
+//
+
+async function queryAllPersonsFromPeopleTable() {
+  const appToken = process.env.PEOPLE_APP_TOKEN;
+  const tableId = process.env.PEOPLE_TABLE_ID;
+  const nameField = process.env.PEOPLE_NAME_FIELD || '姓名';
+
+  if (!appToken || !tableId) return null; // 没配就返回 null，让上层走 fallback
 
   const records = await listBitableRecords({
     appToken,
     tableId,
-    filter: undefined, // 不加筛选，整张表都看一遍
+    filter: undefined,
   });
 
   const personSet = new Set();
 
   for (const r of records) {
     const f = r.fields || {};
-    let v = f['人员姓名 NameText']; // 直接读纯文本姓名
-
-    if (Array.isArray(v)) {
-      v.forEach((item) => {
-        if (typeof item === 'string') {
-          personSet.add(item);
-        }
-      });
-    } else if (typeof v === 'string') {
-      personSet.add(v);
+    const v = f[nameField];
+    if (typeof v === 'string' && v.trim()) {
+      personSet.add(v.trim());
     }
   }
 
   return Array.from(personSet).sort();
 }
 
-// ========== 健康检查 ==========
+async function queryAllPersonsFromTimesheet() {
+  const appToken = process.env.BITABLE_APP_TOKEN;
+  const tableId = process.env.BITABLE_TABLE_ID;
+
+  const records = await listBitableRecords({
+    appToken,
+    tableId,
+    filter: undefined,
+  });
+
+  const personSet = new Set();
+
+  for (const r of records) {
+    const f = r.fields || {};
+    const v =
+      f[TIMESHEET_PERSON_FIELD_NAME] ||
+      f['人员姓名 NameText'] ||
+      f['人员 Applicant'];
+
+    if (Array.isArray(v)) {
+      v.forEach((item) => {
+        if (typeof item === 'string' && item.trim()) {
+          personSet.add(item.trim());
+        } else if (item && typeof item === 'object') {
+          if (item.text && String(item.text).trim()) {
+            personSet.add(String(item.text).trim());
+          }
+          if (item.name && String(item.name).trim()) {
+            personSet.add(String(item.name).trim());
+          }
+        }
+      });
+    } else if (typeof v === 'string' && v.trim()) {
+      personSet.add(v.trim());
+    }
+  }
+
+  return Array.from(personSet).sort();
+}
+
+async function queryAllPersons() {
+  // 优先尝试“人员名单表”
+  try {
+    const fromPeopleTable = await queryAllPersonsFromPeopleTable();
+    if (fromPeopleTable && fromPeopleTable.length) return fromPeopleTable;
+  } catch (e) {
+    console.warn('queryAllPersonsFromPeopleTable failed, fallback to timesheet:', e.message);
+  }
+
+  // 否则用工时报表汇总
+  return await queryAllPersonsFromTimesheet();
+}
+
+// ===== 健康检查 =====
 app.get('/ping', (req, res) => {
   res.send('OK');
 });
 
-// ========== API：工时查询 ==========
+// ===== API：工时查询 =====
 app.get('/api/timesheet', async (req, res) => {
   try {
     const { start_date, end_date, person } = req.query;
@@ -189,37 +243,25 @@ app.get('/api/timesheet', async (req, res) => {
       person,
     });
 
-    res.json({
-      code: 0,
-      data: records,
-    });
+    res.json({ code: 0, data: records });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      code: 1,
-      msg: 'Server error',
-    });
+    res.status(500).json({ code: 1, msg: 'Server error' });
   }
 });
 
-// ========== API：人员列表 ==========
+// ===== API：人员列表 =====
 app.get('/api/people', async (req, res) => {
   try {
     const persons = await queryAllPersons();
-    res.json({
-      code: 0,
-      data: persons,
-    });
+    res.json({ code: 0, data: persons });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      code: 1,
-      msg: 'Server error',
-    });
+    res.status(500).json({ code: 1, msg: 'Server error' });
   }
 });
 
-// ========== 启动服务 ==========
+// ===== 启动服务 =====
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
