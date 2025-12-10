@@ -52,6 +52,8 @@ async function listBitableRecords({ appToken, tableId, filter }) {
   do {
     const params = {
       page_size: 500,
+      // 关键：让返回值里的 key 使用“字段名”而不是 field_id
+      field_names: true,
     };
     if (filter) params.filter = filter;
     if (pageToken) params.page_token = pageToken;
