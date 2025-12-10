@@ -261,6 +261,35 @@ app.get('/api/people', async (req, res) => {
   }
 });
 
+// ===== 调试接口：返回一条打卡记录的原始字段，用于确认字段名 =====
+app.get('/api/debug-record', async (req, res) => {
+  try {
+    const appToken = process.env.BITABLE_APP_TOKEN;
+    const tableId = process.env.BITABLE_TABLE_ID;
+
+    // 只取 1 条
+    const records = await listBitableRecords({
+      appToken,
+      tableId,
+      filter: undefined,
+    });
+
+    if (!records.length) {
+      return res.json({ code: 0, msg: 'no records', fields: {} });
+    }
+
+    const first = records[0];
+    return res.json({
+      code: 0,
+      msg: 'ok',
+      fields: first.fields || {},
+    });
+  } catch (e) {
+    console.error('debug-record error', e);
+    res.status(500).json({ code: 1, msg: 'debug error: ' + e.message });
+  }
+});
+
 // ===== 启动服务 =====
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
