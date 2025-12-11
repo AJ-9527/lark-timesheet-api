@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>工时查询</title>
+  <title>工时查询 Timesheet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * {
@@ -22,6 +22,13 @@
     h1 {
       font-size: 20px;
       text-align: center;
+      margin-bottom: 16px;
+    }
+    .subtitle {
+      font-size: 12px;
+      text-align: center;
+      color: #777;
+      margin-top: -8px;
       margin-bottom: 16px;
     }
     .card {
@@ -136,27 +143,31 @@
 </head>
 <body>
   <div class="container">
-    <h1>工时查询</h1>
+    <h1>工时查询 Timesheet</h1>
+    <div class="subtitle">个人工时查询页面 · Personal Working Hours Lookup</div>
 
     <!-- 登录卡片：手机号 + 验证码 -->
     <div class="card" id="login-card">
-      <div class="card-title">登录</div>
+      <div class="card-title">登录 Login</div>
       <div class="form-row">
-        <label for="phone-input">手机号</label>
-        <input id="phone-input" type="tel" placeholder="请输入您的手机号" />
-        <div class="tips">必须与公司员工信息中的手机号一致。</div>
+        <label for="phone-input">手机号 Phone</label>
+        <input id="phone-input" type="tel" placeholder="请输入您的手机号 Enter your phone number" />
+        <div class="tips">
+          必须与公司员工信息中的手机号一致。<br />
+          Must match the phone number in company employee records.
+        </div>
       </div>
       <div class="form-row row-inline">
         <div>
-          <label for="code-input">验证码</label>
-          <input id="code-input" type="text" placeholder="6位数字" />
+          <label for="code-input">验证码 Code</label>
+          <input id="code-input" type="text" placeholder="6位数字 6-digit code" />
         </div>
         <div style="align-self: flex-end;">
-          <button id="btn-send-code" type="button">获取验证码</button>
+          <button id="btn-send-code" type="button">获取验证码 Get Code</button>
         </div>
       </div>
       <div class="form-row">
-        <button id="btn-login" type="button" class="btn-secondary">登录并绑定账号</button>
+        <button id="btn-login" type="button" class="btn-secondary">登录并绑定账号 Login &amp; Bind</button>
       </div>
       <div id="login-status" class="status info"></div>
     </div>
@@ -164,38 +175,41 @@
     <!-- 查询卡片：日期范围 + 查询 -->
     <div class="card hidden" id="query-card">
       <div class="card-title">
-        查询条件
+        查询条件 Filter
         <span id="current-user-label" style="font-size:12px;font-weight:400;color:#666;"></span>
       </div>
       <div class="form-row row-inline">
         <div>
-          <label for="start-date">开始日期</label>
+          <label for="start-date">开始日期 Start Date</label>
           <input id="start-date" type="date" />
         </div>
         <div>
-          <label for="end-date">结束日期</label>
+          <label for="end-date">结束日期 End Date</label>
           <input id="end-date" type="date" />
         </div>
       </div>
       <div class="form-row">
-        <button id="btn-query" type="button">查询工时</button>
+        <button id="btn-query" type="button">查询工时 Query Timesheet</button>
       </div>
       <div id="query-status" class="status info"></div>
     </div>
 
     <!-- 结果卡片：表格 + 合计 -->
     <div class="card hidden" id="result-card">
-      <div class="card-title">查询结果</div>
-      <div id="result-empty" class="tips">暂无数据，请先选择日期并查询。</div>
+      <div class="card-title">查询结果 Results</div>
+      <div id="result-empty" class="tips">
+        暂无数据，请先选择日期并查询。<br />
+        No data. Please select a date range and query.
+      </div>
       <div id="result-table-wrapper" class="hidden">
         <table>
           <thead>
             <tr>
-              <th>日期</th>
-              <th>项目</th>
-              <th>上班</th>
-              <th>下班</th>
-              <th>工时</th>
+              <th>日期 Date</th>
+              <th>项目 Project</th>
+              <th>上班 Start</th>
+              <th>下班 End</th>
+              <th>工时 Hours</th>
             </tr>
           </thead>
           <tbody id="result-tbody"></tbody>
@@ -205,7 +219,8 @@
     </div>
 
     <div class="muted">
-      本页面仅用于查询个人工时，如有问题请联系办公室。
+      本页面仅用于查询个人工时，如有问题请联系办公室。<br />
+      This page is for personal timesheet viewing only. Please contact the office if you have any questions.
     </div>
   </div>
 
@@ -262,11 +277,11 @@
     async function requestCode() {
       const phone = phoneInput.value.trim();
       if (!phone) {
-        setLoginStatus("请输入手机号。", "error");
+        setLoginStatus("请输入手机号 / Please enter phone number.", "error");
         return;
       }
       setLoginStatus("", "info");
-      setLoading(btnSendCode, "发送中...");
+      setLoading(btnSendCode, "发送中 Sending...");
 
       try {
         const res = await fetch("/api/request_code", {
@@ -276,14 +291,18 @@
         });
         const data = await res.json();
         if (data.code !== 0) {
-          setLoginStatus(data.msg || "验证码发送失败。", "error");
+          setLoginStatus((data.msg || "验证码发送失败。Send code failed."), "error");
         } else {
-          // 调试阶段可提示 debug_code，正式使用时可以去掉
-          setLoginStatus("验证码已发送（测试环境 debug_code: " + (data.debug_code || "******") + "）", "success");
+          // 测试阶段：提示 debug_code；正式使用时可以改为“验证码已发送，请查收短信”
+          setLoginStatus(
+            "验证码已发送（测试环境 debug_code: " + (data.debug_code || "******") + "）。" +
+            "Verification code sent (for test, debug_code shown above).",
+            "success"
+          );
         }
       } catch (e) {
         console.error(e);
-        setLoginStatus("网络错误，请稍后再试。", "error");
+        setLoginStatus("网络错误，请稍后再试。Network error, please try again.", "error");
       } finally {
         clearLoading(btnSendCode);
       }
@@ -293,10 +312,10 @@
       const phone = phoneInput.value.trim();
       const code = codeInput.value.trim();
       if (!phone || !code) {
-        setLoginStatus("请填写手机号和验证码。", "error");
+        setLoginStatus("请填写手机号和验证码 / Please fill phone and code.", "error");
         return;
       }
-      setLoading(btnLogin, "登录中...");
+      setLoading(btnLogin, "登录中 Logging in...");
       setLoginStatus("", "info");
 
       try {
@@ -307,17 +326,17 @@
         });
         const data = await res.json();
         if (data.code !== 0) {
-          setLoginStatus(data.msg || "登录失败。", "error");
+          setLoginStatus((data.msg || "登录失败。Login failed."), "error");
           return;
         }
         sessionToken = data.token;
         currentPersonName = data.personName;
 
-        setLoginStatus("登录成功！", "success");
+        setLoginStatus("登录成功！Login success!", "success");
         loginCard.classList.add("hidden");
         queryCard.classList.remove("hidden");
         resultCard.classList.remove("hidden");
-        currentUserLabel.textContent = "（当前： " + (currentPersonName || "") + " ）";
+        currentUserLabel.textContent = "（当前 Current: " + (currentPersonName || "") + " ）";
 
         // 默认把开始/结束日期设为今天
         const today = new Date();
@@ -329,7 +348,7 @@
         endDateInput.value = todayStr;
       } catch (e) {
         console.error(e);
-        setLoginStatus("网络错误，请稍后再试。", "error");
+        setLoginStatus("网络错误，请稍后再试。Network error, please try again.", "error");
       } finally {
         clearLoading(btnLogin);
       }
@@ -375,22 +394,23 @@
         resultTbody.appendChild(tr);
       });
 
-      totalRow.textContent = "合计工时：" + totalHours.toFixed(2);
+      totalRow.textContent =
+        "合计工时 Total Hours：" + totalHours.toFixed(2);
     }
 
     async function queryTimesheet() {
       if (!sessionToken) {
-        setQueryStatus("请先登录。", "error");
+        setQueryStatus("请先登录。Please login first.", "error");
         return;
       }
       const startDate = startDateInput.value;
       const endDate = endDateInput.value;
       if (!startDate || !endDate) {
-        setQueryStatus("请选择开始和结束日期。", "error");
+        setQueryStatus("请选择开始和结束日期。Please select start & end date.", "error");
         return;
       }
-      setQueryStatus("查询中...", "info");
-      setLoading(btnQuery, "查询中...");
+      setQueryStatus("查询中 Querying...", "info");
+      setLoading(btnQuery, "查询中 Querying...");
 
       try {
         const params = new URLSearchParams();
@@ -401,15 +421,15 @@
         const res = await fetch("/api/timesheet?" + params.toString());
         const data = await res.json();
         if (data.code !== 0) {
-          setQueryStatus(data.msg || "查询失败。", "error");
+          setQueryStatus((data.msg || "查询失败。Query failed."), "error");
           renderResults([]);
         } else {
-          setQueryStatus("查询完成。", "success");
+          setQueryStatus("查询完成。Query finished.", "success");
           renderResults(data.data || []);
         }
       } catch (e) {
         console.error(e);
-        setQueryStatus("网络错误，请稍后再试。", "error");
+        setQueryStatus("网络错误，请稍后再试。Network error, please try again.", "error");
         renderResults([]);
       } finally {
         clearLoading(btnQuery);
