@@ -1,19 +1,24 @@
 // index.js
-// Lark Bitable 工时查询服务（按字段名取值的简化版本）
-// - /api/timesheet  按日期/人员查询打卡记录
-// - /api/people     获取人员列表（优先从人员表读取）
-// - /api/debug-record  调试：输出一条工时记录的原始 fields
-// - /api/debug-people  调试：输出一条人员记录的原始 fields
+// 功能：
+// - 手机号 + 验证码登录（不接 Twilio，目前直接在日志 + 返回 debug_code）
+// - /api/request_code  请求验证码
+// - /api/verify_code   验证验证码，生成 session_token
+// - /api/timesheet     按日期 + 当前登录人 查询工时
+// - /api/people        获取人员列表（管理员用）
+// - /api/debug-record  查看一条工时记录原始 fields
+// - /api/debug-people  查看一条人员记录原始 fields
 
 const express = require("express");
 const axios = require("axios");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 静态页面
+// 静态页面 & JSON 解析
 app.use(express.static("public"));
+app.use(express.json());
 
 // ====== Lark tenant_access_token 缓存 ======
 let cachedToken = null;
@@ -43,7 +48,7 @@ async function getTenantAccessToken() {
   return cachedToken;
 }
 
-// ====== 通用：读取 Bitable 记录（fields 用“字段名”作 key） ======
+// ====== 通用：读取 Bitable 记录（fields 用字段名作 key） ======
 async function listBitableRecords({ appToken, tableId, filter }) {
   const token = await getTenantAccessToken();
   let pageToken = undefined;
@@ -108,6 +113,114 @@ function extractTextValues(value) {
   return result;
 }
 
+// ====== 简单的“签名 token”工具（会话 token，不是 Lark 的） ======
+function createSessionToken(personName) {
+  const secret = process.env.SESSION_SECRET || "default_secret";
+  const expiresAt = Date.now() + 1000 * 60 * 60 * 4; // 4 小时有效
+  const payload = JSON.stringify({ personName, expiresAt });
+  const payloadBase64 = Buffer.from(payload).toString("base64url");
+  const sig = crypto
+    .createHmac("sha256", secret)
+    .update(payloadBase64)
+    .digest("base64url");
+  return `${payloadBase64}.${sig}`;
+}
+
+function parseSessionToken(token) {
+  if (!token) return null;
+  const secret = process.env.SESSION_SECRET || "default_secret";
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payloadBase64, sig] = parts;
+
+  const expectedSig = crypto
+    .createHmac("sha256", secret)
+    .update(payloadBase64)
+    .digest("base64url");
+  if (sig !== expectedSig) return null;
+
+  try {
+    const payload = JSON.parse(
+      Buffer.from(payloadBase64, "base64url").toString()
+    );
+    if (!payload.personName || !payload.expiresAt) return null;
+    if (Date.now() > payload.expiresAt) return null;
+    return payload; // { personName, expiresAt }
+  } catch (e) {
+    return null;
+  }
+}
+
+// ====== 简单的手机验证码存储（内存版） ======
+const phoneCodeStore = new Map(); // key: 归一化手机号, value: { code, expiresAt }
+
+function setPhoneCode(phone, code, ttlMs = 5 * 60 * 1000) {
+  const key = String(phone).replace(/\D/g, "");
+  const expiresAt = Date.now() + ttlMs;
+  phoneCodeStore.set(key, { code, expiresAt });
+}
+
+function verifyPhoneCode(phone, code) {
+  const key = String(phone).replace(/\D/g, "");
+  const item = phoneCodeStore.get(key);
+  if (!item) return false;
+  if (Date.now() > item.expiresAt) {
+    phoneCodeStore.delete(key);
+    return false;
+  }
+  if (item.code !== code) return false;
+  phoneCodeStore.delete(key);
+  return true;
+}
+
+// ====== 员工表：根据手机号查员工姓名 ======
+async function findEmployeeByPhone(phone) {
+  if (!phone) return null;
+
+  const appToken =
+    process.env.EMPLOYEE_APP_TOKEN || process.env.PEOPLE_APP_TOKEN;
+  const tableId =
+    process.env.EMPLOYEE_TABLE_ID || process.env.PEOPLE_TABLE_ID;
+  const nameField =
+    process.env.EMPLOYEE_NAME_FIELD ||
+    process.env.PEOPLE_NAME_FIELD ||
+    "常用名 Common Name";
+  const phoneField = process.env.EMPLOYEE_PHONE_FIELD || "手机号码 Phone";
+
+  if (!appToken || !tableId) return null;
+
+  const records = await listBitableRecords({
+    appToken,
+    tableId,
+    filter: undefined,
+  });
+
+  const normalizePhone = (p) => String(p).replace(/\D/g, "");
+  const target = normalizePhone(phone);
+  if (!target) return null;
+
+  for (const r of records) {
+    const f = r.fields || {};
+    const vPhone = f[phoneField];
+    const phoneArr = extractTextValues(vPhone);
+    if (!phoneArr.length) continue;
+    const empPhone = normalizePhone(phoneArr[0]);
+    if (!empPhone) continue;
+
+    if (empPhone === target) {
+      const nameArr = extractTextValues(f[nameField]);
+      const name = nameArr[0] || null;
+      if (!name) return null;
+      return {
+        name,
+        phone: empPhone,
+      };
+    }
+  }
+
+  return null;
+}
+
 // ====== 工时查询逻辑 ======
 
 // 工时报表中用于显示/筛选人员的字段名
@@ -118,18 +231,16 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
 
-  // 1. 不带任何筛选，从 Lark 一次性把记录都拉下来
+  // 1. 不使用 Lark 端 filter，直接拉全表，再在 Node 中筛选
   const records = await listBitableRecords({
     appToken,
     tableId,
     filter: undefined,
   });
 
-  // 2. 把传进来的日期字符串先记住（格式：YYYY-MM-DD）
   const startStr = startDate || null;
   const endStr = endDate || null;
 
-  // 工具：把日期字段的值转成 YYYY-MM-DD 字符串
   const toDateStr = (val) => {
     if (typeof val === "number") {
       const d = new Date(val);
@@ -139,16 +250,13 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
       return `${y}-${m}-${dd}`;
     }
     if (typeof val === "string") {
-      // 如果本来就是 "2025-01-10" 或 "2025-01-10 08:00" 之类
       return val.slice(0, 10);
     }
     return "";
   };
 
-  // 3. 先按日期 / 人员在 Node.js 里过滤
   const filtered = records.filter((r) => {
     const f = r.fields || {};
-
     const recordDateStr = toDateStr(f["日期 Date"]);
 
     if (startStr && recordDateStr && recordDateStr < startStr) return false;
@@ -166,7 +274,6 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
     return true;
   });
 
-  // 4. 再把字段整理成前端需要的结构
   const normalize = (v) => {
     const arr = extractTextValues(v);
     if (arr.length) return arr.join(", ");
@@ -193,16 +300,15 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   });
 }
 
-
 // ====== 人员列表逻辑 ======
 
-// 1）优先从“人员表”读取
 async function queryAllPersonsFromPeopleTable() {
   const appToken = process.env.PEOPLE_APP_TOKEN;
   const tableId = process.env.PEOPLE_TABLE_ID;
-  const nameFieldName = process.env.PEOPLE_NAME_FIELD || "姓名";
+  const nameFieldName =
+    process.env.PEOPLE_NAME_FIELD || "常用名 Common Name";
 
-  if (!appToken || !tableId) return null; // 未配置则不使用
+  if (!appToken || !tableId) return null;
 
   const records = await listBitableRecords({
     appToken,
@@ -221,7 +327,6 @@ async function queryAllPersonsFromPeopleTable() {
   return Array.from(personSet).sort();
 }
 
-// 2）否则从工时报表汇总
 async function queryAllPersonsFromTimesheet() {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
@@ -247,15 +352,12 @@ async function queryAllPersonsFromTimesheet() {
 }
 
 async function queryAllPersons() {
-  // 1）优先尝试人员表
   try {
     const fromPeople = await queryAllPersonsFromPeopleTable();
     if (fromPeople && fromPeople.length) return fromPeople;
   } catch (e) {
     console.warn("queryAllPersonsFromPeopleTable failed:", e.message);
   }
-
-  // 2）否则从工时报表汇总
   return await queryAllPersonsFromTimesheet();
 }
 
@@ -264,14 +366,91 @@ app.get("/ping", (req, res) => {
   res.send("OK");
 });
 
-// ====== API：工时查询 ======
+// ====== 请求短信验证码（目前不接 Twilio，只返回 debug_code） ======
+app.post("/api/request_code", async (req, res) => {
+  try {
+    const { phone } = req.body || {};
+    if (!phone) {
+      return res.status(400).json({ code: 1, msg: "手机号必填" });
+    }
+
+    const emp = await findEmployeeByPhone(phone);
+    if (!emp) {
+      return res
+        .status(400)
+        .json({ code: 1, msg: "该手机号在员工信息中不存在" });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    setPhoneCode(phone, code);
+
+    // 现在先不接 Twilio，直接打印到日志 & 返回 debug_code 方便测试
+    console.log(`【调试】验证码发送给 ${emp.name} (${phone}): ${code}`);
+
+    res.json({
+      code: 0,
+      msg: "验证码已生成（调试环境），请查看 debug_code 或服务器日志",
+      debug_code: code,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ code: 1, msg: "Server error" });
+  }
+});
+
+// ====== 校验验证码，生成 session_token ======
+app.post("/api/verify_code", async (req, res) => {
+  try {
+    const { phone, code } = req.body || {};
+    if (!phone || !code) {
+      return res.status(400).json({ code: 1, msg: "手机号和验证码必填" });
+    }
+
+    const ok = verifyPhoneCode(phone, code);
+    if (!ok) {
+      return res.status(400).json({ code: 1, msg: "验证码错误或已过期" });
+    }
+
+    const emp = await findEmployeeByPhone(phone);
+    if (!emp) {
+      return res
+        .status(400)
+        .json({ code: 1, msg: "员工信息不存在，请联系管理员" });
+    }
+
+    const token = createSessionToken(emp.name);
+
+    res.json({
+      code: 0,
+      msg: "验证通过",
+      token,
+      personName: emp.name,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ code: 1, msg: "Server error" });
+  }
+});
+
+// ====== 工时查询 ======
 app.get("/api/timesheet", async (req, res) => {
   try {
-    const { start_date, end_date, person } = req.query;
+    const { start_date, end_date, person, session_token } = req.query;
+
+    let effectivePerson = person;
+
+    // 如果带了 session_token，就强制只查 token 里的这个人
+    if (session_token) {
+      const payload = parseSessionToken(session_token);
+      if (payload && payload.personName) {
+        effectivePerson = payload.personName;
+      }
+    }
+
     const records = await queryTimesheetRecords({
       startDate: start_date,
       endDate: end_date,
-      person,
+      person: effectivePerson,
     });
     res.json({ code: 0, data: records });
   } catch (err) {
@@ -280,7 +459,7 @@ app.get("/api/timesheet", async (req, res) => {
   }
 });
 
-// ====== API：人员列表 ======
+// ====== 人员列表（管理员用） ======
 app.get("/api/people", async (req, res) => {
   try {
     const persons = await queryAllPersons();
