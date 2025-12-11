@@ -121,10 +121,10 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   // 构造 filter（注意字段名要与 Bitable 完全一致）
   const filters = [];
   if (startDate) {
-    filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
+    filters.push(`CurrentValue.[日期 Date] >= DATE("${startDate}"`);
   }
   if (endDate) {
-    filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
+    filters.push(`CurrentValue.[日期 Date] <= DATE("${endDate}"`);
   }
   if (person) {
     filters.push(`CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`);
