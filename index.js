@@ -118,44 +118,72 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
 
-  // 构造 filter（注意字段名要与 Bitable 完全一致）
-  const filters = [];
-  if (startDate) {
-    filters.push(`CurrentValue.[日期 Date] >= DATE("${startDate}"`);
-  }
-  if (endDate) {
-    filters.push(`CurrentValue.[日期 Date] <= DATE("${endDate}"`);
-  }
-  if (person) {
-    filters.push(`CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`);
-  }
-
-  const filterStr = filters.length ? "AND(" + filters.join(",") + ")" : "";
-
+  // 1. 不带任何筛选，从 Lark 一次性把记录都拉下来
   const records = await listBitableRecords({
     appToken,
     tableId,
-    filter: filterStr || undefined,
+    filter: undefined,
   });
 
-  const mapped = records.map((r) => {
+  // 2. 把传进来的日期字符串先记住（格式：YYYY-MM-DD）
+  const startStr = startDate || null;
+  const endStr = endDate || null;
+
+  // 工具：把日期字段的值转成 YYYY-MM-DD 字符串
+  const toDateStr = (val) => {
+    if (typeof val === "number") {
+      const d = new Date(val);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${dd}`;
+    }
+    if (typeof val === "string") {
+      // 如果本来就是 "2025-01-10" 或 "2025-01-10 08:00" 之类
+      return val.slice(0, 10);
+    }
+    return "";
+  };
+
+  // 3. 先按日期 / 人员在 Node.js 里过滤
+  const filtered = records.filter((r) => {
     const f = r.fields || {};
 
-    const normalize = (v) => {
-      const arr = extractTextValues(v);
-      if (arr.length) return arr.join(", ");
-      if (Array.isArray(v)) return v.join(", ");
-      if (v === null || v === undefined) return "";
-      return v;
-    };
+    const recordDateStr = toDateStr(f["日期 Date"]);
 
+    if (startStr && recordDateStr && recordDateStr < startStr) return false;
+    if (endStr && recordDateStr && recordDateStr > endStr) return false;
+
+    if (person) {
+      const personVal =
+        f[TIMESHEET_PERSON_FIELD_NAME] ||
+        f["人员姓名 NameText"] ||
+        f["人员 Applicant"];
+      const names = extractTextValues(personVal);
+      if (!names.includes(person)) return false;
+    }
+
+    return true;
+  });
+
+  // 4. 再把字段整理成前端需要的结构
+  const normalize = (v) => {
+    const arr = extractTextValues(v);
+    if (arr.length) return arr.join(", ");
+    if (Array.isArray(v)) return v.join(", ");
+    if (v === null || v === undefined) return "";
+    return v;
+  };
+
+  return filtered.map((r) => {
+    const f = r.fields || {};
     const personVal =
       f[TIMESHEET_PERSON_FIELD_NAME] ||
       f["人员姓名 NameText"] ||
       f["人员 Applicant"];
 
     return {
-      date: normalize(f["日期 Date"]),
+      date: toDateStr(f["日期 Date"]),
       project: normalize(f["项目 Project"]),
       startTime: normalize(f["开工时间 Start Time"]),
       endTime: normalize(f["结束时间 End Time"]),
@@ -163,9 +191,8 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
       hours: Number(f["工时"] || 0),
     };
   });
-
-  return mapped;
 }
+
 
 // ====== 人员列表逻辑 ======
 
