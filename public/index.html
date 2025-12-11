@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>考勤入口 · Attendance Entry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .btn {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #3370ff;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .btn-sub {
+      font-size: 12px;
+      font-weight: normal;
+      display: block;
+      margin-top: 4px;
+      color: #e5e5e5;
+    }
+    .btn-primary .btn-sub {
+      color: #d6e3ff;
+    }
+    .btn-secondary .btn-sub {
+      color: #888;
+    }
+    .tips {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>考勤入口 · Attendance</h1>
+    <div class="subtitle">
+      请选择要进行的操作<br>
+      Please choose an action
+    </div>
+
+    <div class="card">
+      <button id="btn-new" class="btn btn-primary">
+        新建打卡<br>
+        <span class="btn-sub">New Entry</span>
+      </button>
+
+      <button id="btn-query" class="btn btn-secondary">
+        查询工时<br>
+        <span class="btn-sub">Query Timesheet</span>
+      </button>
+
+      <div class="tips">
+        新建：填写当天考勤记录；查询：查看个人历史工时。<br>
+        “New Entry”：submit today’s attendance. “Query Timesheet”：view your own history.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1）这里换成你原来“新建打卡”用的 Lark URL（多维表单 / 表单视图链接）
+    const NEW_FORM_URL = "https://lumihvac.larksuite.com/share/base/form/shrus7qT5pD8wgfgGtz1hvod222";
+
+    // 2）查询页面就是我们刚才的 query.html（在同一域名下）
+    const QUERY_PAGE_URL = "/query.html";
+
+    document.getElementById("btn-new").addEventListener("click", () => {
+      if (!NEW_FORM_URL || NEW_FORM_URL === "https://lumihvac.larksuite.com/share/base/form/shrus7qT5pD8wgfgGtz1hvod222") {
+        alert("管理员尚未配置新建打卡链接，请联系办公室。\nAdmin: Please configure NEW_FORM_URL in index.html.");
+        return;
+      }
+      // 同一窗口打开
+      window.location.href = NEW_FORM_URL;
+    });
+
+    document.getElementById("btn-query").addEventListener("click", () => {
+      window.location.href = QUERY_PAGE_URL;
+    });
+  </script>
+</body>
+</html>
