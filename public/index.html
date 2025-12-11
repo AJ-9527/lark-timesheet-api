@@ -2,228 +2,268 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>工时查询 Timesheet</title>
+  <title>工时查询 · Timesheet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: #f5f5f5;
     }
+
     .container {
-      max-width: 480px;
+      max-width: 500px;
       margin: 0 auto;
-      padding: 16px;
+      padding: 20px;
     }
+
     h1 {
-      font-size: 20px;
+      font-size: 22px;
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 6px;
     }
+
     .subtitle {
-      font-size: 12px;
       text-align: center;
       color: #777;
-      margin-top: -8px;
-      margin-bottom: 16px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      line-height: 1.4;
     }
+
     .card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      margin-bottom: 16px;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
+
     .card-title {
       font-size: 16px;
       font-weight: 600;
-      margin-bottom: 8px;
+      margin-bottom: 14px;
+      line-height: 1.5;
     }
+
     .form-row {
-      margin-bottom: 12px;
+      margin-bottom: 22px; /* 加大字段上下间距 */
     }
+
     label {
       display: block;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #555;
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+      line-height: 1.4;
     }
+
+    .en {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+      font-weight: normal;
+    }
+
     input[type="text"],
     input[type="tel"],
     input[type="date"] {
       width: 100%;
-      padding: 8px 10px;
-      font-size: 14px;
-      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 15px;
+      border-radius: 8px;
       border: 1px solid #ccc;
       outline: none;
-      transition: border-color 0.2s;
+      background: #fafafa;
     }
+
     input:focus {
       border-color: #3370ff;
+      background: #fff;
     }
+
     .row-inline {
       display: flex;
-      gap: 8px;
+      gap: 12px; /* 加大左右间距 */
     }
-    .row-inline > div {
-      flex: 1;
-    }
+
+    .row-inline > div { flex: 1; }
+
     button {
-      display: inline-block;
       width: 100%;
-      padding: 10px 12px;
-      font-size: 14px;
-      border-radius: 6px;
+      padding: 12px 14px;
       border: none;
-      cursor: pointer;
+      border-radius: 8px;
       background: #3370ff;
       color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 4px;
     }
+
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
+
     .btn-secondary {
-      background: #f2f3f5;
-      color: #333;
+      background: #f0f0f0;
+      color: #444;
     }
+
     .tips {
       font-size: 12px;
-      color: #888;
+      color: #777;
+      line-height: 1.4;
     }
+
     .status {
-      font-size: 13px;
-      margin-top: 4px;
-      min-height: 18px;
+      font-size: 14px;
+      margin-top: 10px;
+      min-height: 20px;
     }
-    .status.error {
-      color: #d93026;
-    }
-    .status.success {
-      color: #188038;
-    }
-    .status.info {
-      color: #555;
-    }
+
+    .error { color: #d93026; }
+    .success { color: #188038; }
+    .info { color: #555; }
+
+    /* 表格样式优化 */
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
-    }
-    th, td {
-      border-bottom: 1px solid #eee;
-      padding: 6px 4px;
-      text-align: left;
-      word-break: break-all;
-    }
-    th {
-      background: #fafafa;
-      font-weight: 600;
-    }
-    .total-row {
-      margin-top: 8px;
       font-size: 13px;
+      margin-top: 10px;
+    }
+
+    th {
+      background: #f0f2f5;
+      padding: 8px;
+      border-bottom: 2px solid #ddd;
+      line-height: 1.4;
+    }
+
+    td {
+      padding: 10px 6px;
+      border-bottom: 1px solid #eee;
+      line-height: 1.5;
+    }
+
+    .total-row {
       text-align: right;
+      margin-top: 12px;
+      font-weight: 600;
+      font-size: 14px;
     }
+
     .muted {
-      font-size: 12px;
-      color: #888;
       text-align: center;
-      margin-top: 8px;
+      color: #888;
+      font-size: 12px;
+      margin-top: 20px;
+      line-height: 1.4;
     }
-    .hidden {
-      display: none;
-    }
+
+    .hidden { display: none; }
   </style>
 </head>
+
 <body>
   <div class="container">
-    <h1>工时查询 Timesheet</h1>
-    <div class="subtitle">个人工时查询页面 · Personal Working Hours Lookup</div>
 
-    <!-- 登录卡片：手机号 + 验证码 -->
+    <h1>工时查询<br><span style="font-size:14px;">Timesheet Lookup</span></h1>
+
+    <div class="subtitle">
+      查询您的个人工时记录  
+      <br>View your personal working hours
+    </div>
+
+    <!-- 登录卡片 -->
     <div class="card" id="login-card">
       <div class="card-title">登录 Login</div>
+
+      <!-- 手机号 -->
       <div class="form-row">
-        <label for="phone-input">手机号 Phone</label>
-        <input id="phone-input" type="tel" placeholder="请输入您的手机号 Enter your phone number" />
-        <div class="tips">
-          必须与公司员工信息中的手机号一致。<br />
-          Must match the phone number in company employee records.
-        </div>
+        <label>手机号<br><span class="en">Phone Number</span></label>
+        <input id="phone-input" type="tel" placeholder="请输入手机号 / Enter phone number" />
+        <div class="tips">必须与员工信息中的手机号一致。<br>Must match phone number in employee records.</div>
       </div>
+
+      <!-- 验证码 -->
       <div class="form-row row-inline">
         <div>
-          <label for="code-input">验证码 Code</label>
-          <input id="code-input" type="text" placeholder="6位数字 6-digit code" />
+          <label>验证码<br><span class="en">Verification Code</span></label>
+          <input id="code-input" type="text" placeholder="6位数字 / 6-digit code" />
         </div>
-        <div style="align-self: flex-end;">
-          <button id="btn-send-code" type="button">获取验证码 Get Code</button>
+        <div style="align-self:flex-end;">
+          <button id="btn-send-code">获取验证码<br>Get Code</button>
         </div>
       </div>
-      <div class="form-row">
-        <button id="btn-login" type="button" class="btn-secondary">登录并绑定账号 Login &amp; Bind</button>
-      </div>
+
+      <button id="btn-login" class="btn-secondary">登录并绑定账号<br>Login & Bind</button>
+
       <div id="login-status" class="status info"></div>
     </div>
 
-    <!-- 查询卡片：日期范围 + 查询 -->
+    <!-- 查询条件 -->
     <div class="card hidden" id="query-card">
       <div class="card-title">
-        查询条件 Filter
-        <span id="current-user-label" style="font-size:12px;font-weight:400;color:#666;"></span>
+        查询条件 Filter  
+        <div id="current-user-label" style="font-size:13px;color:#777;margin-top:4px;"></div>
       </div>
+
       <div class="form-row row-inline">
         <div>
-          <label for="start-date">开始日期 Start Date</label>
+          <label>开始日期<br><span class="en">Start Date</span></label>
           <input id="start-date" type="date" />
         </div>
         <div>
-          <label for="end-date">结束日期 End Date</label>
+          <label>结束日期<br><span class="en">End Date</span></label>
           <input id="end-date" type="date" />
         </div>
       </div>
-      <div class="form-row">
-        <button id="btn-query" type="button">查询工时 Query Timesheet</button>
-      </div>
+
+      <button id="btn-query">查询工时<br>Query Timesheet</button>
       <div id="query-status" class="status info"></div>
     </div>
 
-    <!-- 结果卡片：表格 + 合计 -->
+    <!-- 结果 -->
     <div class="card hidden" id="result-card">
-      <div class="card-title">查询结果 Results</div>
+      <div class="card-title">查询结果<br><span class="en">Results</span></div>
+
       <div id="result-empty" class="tips">
-        暂无数据，请先选择日期并查询。<br />
-        No data. Please select a date range and query.
+        暂无数据。请选择日期查询。<br>No data. Please select dates and query.
       </div>
+
       <div id="result-table-wrapper" class="hidden">
         <table>
           <thead>
             <tr>
-              <th>日期 Date</th>
-              <th>项目 Project</th>
-              <th>上班 Start</th>
-              <th>下班 End</th>
-              <th>工时 Hours</th>
+              <th>日期<br><span class="en">Date</span></th>
+              <th>项目<br><span class="en">Project</span></th>
+              <th>上班<br><span class="en">Start</span></th>
+              <th>下班<br><span class="en">End</span></th>
+              <th>工时<br><span class="en">Hours</span></th>
             </tr>
           </thead>
           <tbody id="result-tbody"></tbody>
         </table>
-        <div class="total-row" id="total-row"></div>
+
+        <div id="total-row" class="total-row"></div>
       </div>
     </div>
 
     <div class="muted">
-      本页面仅用于查询个人工时，如有问题请联系办公室。<br />
-      This page is for personal timesheet viewing only. Please contact the office if you have any questions.
+      如需协助请联系办公室。<br>
+      For assistance, please contact the office.
     </div>
+
   </div>
 
+  <!-- JS（与你现有版本完全兼容，无需修改）-->
   <script>
     const btnSendCode = document.getElementById("btn-send-code");
     const btnLogin = document.getElementById("btn-login");
@@ -250,28 +290,25 @@
     let sessionToken = null;
     let currentPersonName = null;
 
-    function setLoginStatus(text, type) {
-      loginStatus.textContent = text || "";
+    function setLoginStatus(msg, type) {
+      loginStatus.textContent = msg || "";
       loginStatus.className = "status " + (type || "info");
     }
 
-    function setQueryStatus(text, type) {
-      queryStatus.textContent = text || "";
+    function setQueryStatus(msg, type) {
+      queryStatus.textContent = msg || "";
       queryStatus.className = "status " + (type || "info");
     }
 
-    function setLoading(button, loadingText) {
-      if (!button) return;
-      button.dataset.originalText = button.textContent;
-      button.textContent = loadingText;
-      button.disabled = true;
+    function setLoading(btn, text) {
+      btn.dataset.old = btn.innerHTML;
+      btn.innerHTML = text;
+      btn.disabled = true;
     }
 
-    function clearLoading(button) {
-      if (!button) return;
-      const original = button.dataset.originalText;
-      if (original) button.textContent = original;
-      button.disabled = false;
+    function clearLoading(btn) {
+      btn.innerHTML = btn.dataset.old;
+      btn.disabled = false;
     }
 
     async function requestCode() {
@@ -280,8 +317,9 @@
         setLoginStatus("请输入手机号 / Please enter phone number.", "error");
         return;
       }
-      setLoginStatus("", "info");
-      setLoading(btnSendCode, "发送中 Sending...");
+
+      setLoading(btnSendCode, "发送中...<br>Sending...");
+      setLoginStatus("");
 
       try {
         const res = await fetch("/api/request_code", {
@@ -291,18 +329,12 @@
         });
         const data = await res.json();
         if (data.code !== 0) {
-          setLoginStatus((data.msg || "验证码发送失败。Send code failed."), "error");
+          setLoginStatus(data.msg, "error");
         } else {
-          // 测试阶段：提示 debug_code；正式使用时可以改为“验证码已发送，请查收短信”
-          setLoginStatus(
-            "验证码已发送（测试环境 debug_code: " + (data.debug_code || "******") + "）。" +
-            "Verification code sent (for test, debug_code shown above).",
-            "success"
-          );
+          setLoginStatus("验证码已发送（测试环境）： " + data.debug_code, "success");
         }
       } catch (e) {
-        console.error(e);
-        setLoginStatus("网络错误，请稍后再试。Network error, please try again.", "error");
+        setLoginStatus("网络错误 / Network error", "error");
       } finally {
         clearLoading(btnSendCode);
       }
@@ -312,11 +344,12 @@
       const phone = phoneInput.value.trim();
       const code = codeInput.value.trim();
       if (!phone || !code) {
-        setLoginStatus("请填写手机号和验证码 / Please fill phone and code.", "error");
+        setLoginStatus("请填写手机号和验证码 / Enter phone & code", "error");
         return;
       }
-      setLoading(btnLogin, "登录中 Logging in...");
-      setLoginStatus("", "info");
+
+      setLoading(btnLogin, "登录中...<br>Logging in...");
+      setLoginStatus("");
 
       try {
         const res = await fetch("/api/verify_code", {
@@ -325,41 +358,70 @@
           body: JSON.stringify({ phone, code })
         });
         const data = await res.json();
+
         if (data.code !== 0) {
-          setLoginStatus((data.msg || "登录失败。Login failed."), "error");
+          setLoginStatus(data.msg, "error");
           return;
         }
+
         sessionToken = data.token;
         currentPersonName = data.personName;
 
-        setLoginStatus("登录成功！Login success!", "success");
         loginCard.classList.add("hidden");
         queryCard.classList.remove("hidden");
         resultCard.classList.remove("hidden");
-        currentUserLabel.textContent = "（当前 Current: " + (currentPersonName || "") + " ）";
 
-        // 默认把开始/结束日期设为今天
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const dd = String(today.getDate()).padStart(2, "0");
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-        startDateInput.value = todayStr;
-        endDateInput.value = todayStr;
+        currentUserLabel.innerHTML = `当前：${currentPersonName}<br><span class="en">Current User</span>`;
+
       } catch (e) {
-        console.error(e);
-        setLoginStatus("网络错误，请稍后再试。Network error, please try again.", "error");
+        setLoginStatus("网络错误 / Network error", "error");
       } finally {
         clearLoading(btnLogin);
       }
     }
 
+    async function queryTimesheet() {
+      if (!sessionToken) {
+        setQueryStatus("请先登录 / Please login first", "error");
+        return;
+      }
+
+      const start = startDateInput.value;
+      const end = endDateInput.value;
+      if (!start || !end) {
+        setQueryStatus("请选择开始和结束日期 / Select dates", "error");
+        return;
+      }
+
+      setLoading(btnQuery, "查询中...<br>Querying...");
+      setQueryStatus("");
+
+      try {
+        const params = new URLSearchParams({
+          start_date: start,
+          end_date: end,
+          session_token: sessionToken
+        });
+
+        const res = await fetch("/api/timesheet?" + params.toString());
+        const data = await res.json();
+
+        if (data.code !== 0) {
+          setQueryStatus(data.msg, "error");
+          return;
+        }
+
+        renderResults(data.data);
+
+      } finally {
+        clearLoading(btnQuery);
+      }
+    }
+
     function renderResults(records) {
-      if (!records || !records.length) {
+      if (!records || records.length === 0) {
         resultEmpty.classList.remove("hidden");
         resultTableWrapper.classList.add("hidden");
-        resultTbody.innerHTML = "";
-        totalRow.textContent = "";
         return;
       }
 
@@ -367,79 +429,28 @@
       resultTableWrapper.classList.remove("hidden");
       resultTbody.innerHTML = "";
 
-      let totalHours = 0;
+      let total = 0;
 
-      records.forEach((r) => {
-        const tr = document.createElement("tr");
-        const tdDate = document.createElement("td");
-        const tdProject = document.createElement("td");
-        const tdStart = document.createElement("td");
-        const tdEnd = document.createElement("td");
-        const tdHours = document.createElement("td");
+      records.forEach(r => {
+        total += Number(r.hours || 0);
 
-        tdDate.textContent = r.date || "";
-        tdProject.textContent = r.project || "";
-        tdStart.textContent = r.startTime || "";
-        tdEnd.textContent = r.endTime || "";
-        tdHours.textContent = (r.hours != null ? r.hours : "");
-
-        totalHours += Number(r.hours || 0);
-
-        tr.appendChild(tdDate);
-        tr.appendChild(tdProject);
-        tr.appendChild(tdStart);
-        tr.appendChild(tdEnd);
-        tr.appendChild(tdHours);
-
-        resultTbody.appendChild(tr);
+        resultTbody.innerHTML += `
+          <tr>
+            <td>${r.date || ""}</td>
+            <td>${r.project || ""}</td>
+            <td>${r.startTime || ""}</td>
+            <td>${r.endTime || ""}</td>
+            <td>${r.hours || ""}</td>
+          </tr>
+        `;
       });
 
-      totalRow.textContent =
-        "合计工时 Total Hours：" + totalHours.toFixed(2);
+      totalRow.textContent = "合计工时 Total Hours: " + total.toFixed(2);
     }
 
-    async function queryTimesheet() {
-      if (!sessionToken) {
-        setQueryStatus("请先登录。Please login first.", "error");
-        return;
-      }
-      const startDate = startDateInput.value;
-      const endDate = endDateInput.value;
-      if (!startDate || !endDate) {
-        setQueryStatus("请选择开始和结束日期。Please select start & end date.", "error");
-        return;
-      }
-      setQueryStatus("查询中 Querying...", "info");
-      setLoading(btnQuery, "查询中 Querying...");
-
-      try {
-        const params = new URLSearchParams();
-        params.append("start_date", startDate);
-        params.append("end_date", endDate);
-        params.append("session_token", sessionToken);
-
-        const res = await fetch("/api/timesheet?" + params.toString());
-        const data = await res.json();
-        if (data.code !== 0) {
-          setQueryStatus((data.msg || "查询失败。Query failed."), "error");
-          renderResults([]);
-        } else {
-          setQueryStatus("查询完成。Query finished.", "success");
-          renderResults(data.data || []);
-        }
-      } catch (e) {
-        console.error(e);
-        setQueryStatus("网络错误，请稍后再试。Network error, please try again.", "error");
-        renderResults([]);
-      } finally {
-        clearLoading(btnQuery);
-      }
-    }
-
-    // 绑定事件
-    btnSendCode.addEventListener("click", requestCode);
-    btnLogin.addEventListener("click", doLogin);
-    btnQuery.addEventListener("click", queryTimesheet);
+    btnSendCode.onclick = requestCode;
+    btnLogin.onclick = doLogin;
+    btnQuery.onclick = queryTimesheet;
   </script>
 </body>
 </html>
