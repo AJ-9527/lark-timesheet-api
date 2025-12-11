@@ -1,5 +1,5 @@
 // index.js
-// Lark Bitable 工时查询服务（基于 field_id 的稳定实现）
+// Lark Bitable 工时查询服务（按字段名取值的简化版本）
 // - /api/timesheet  按日期/人员查询打卡记录
 // - /api/people     获取人员列表（优先从人员表读取）
 // - /api/debug-record  调试：输出一条工时记录的原始 fields
@@ -43,72 +43,7 @@ async function getTenantAccessToken() {
   return cachedToken;
 }
 
-// ====== 字段元信息缓存：根据字段名找到 field_id ======
-/**
- * cache 结构：
- * {
- *   "appToken:tableId": {
- *      byName: { "字段名": { field_id, field_name, ... } },
- *      byId:   { "fldxxxx": { field_id, field_name, ... } }
- *   }
- * }
- */
-const fieldMetaCache = {};
-
-async function getFieldMeta(appToken, tableId) {
-  const cacheKey = `${appToken}:${tableId}`;
-  if (fieldMetaCache[cacheKey]) return fieldMetaCache[cacheKey];
-
-  const token = await getTenantAccessToken();
-  let pageToken = undefined;
-  const items = [];
-
-  do {
-    const params = { page_size: 500 };
-    if (pageToken) params.page_token = pageToken;
-
-    const resp = await axios.get(
-      `https://open.larksuite.com/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/fields`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        params,
-      }
-    );
-
-    if (resp.data.code !== 0) {
-      console.error("getFieldMeta error:", resp.data);
-      throw new Error("Failed to list fields: " + resp.data.msg);
-    }
-
-    const data = resp.data.data || {};
-    (data.items || []).forEach((f) => items.push(f));
-
-    pageToken = data.has_more ? data.page_token : undefined;
-  } while (pageToken);
-
-  const byName = {};
-  const byId = {};
-  items.forEach((f) => {
-    byName[f.field_name] = f;
-    byId[f.field_id] = f;
-  });
-
-  const meta = { byName, byId };
-  fieldMetaCache[cacheKey] = meta;
-  return meta;
-}
-
-async function getFieldIdByName(appToken, tableId, fieldName) {
-  const meta = await getFieldMeta(appToken, tableId);
-  const info = meta.byName[fieldName];
-  if (!info) {
-    console.warn(`Field name not found: ${fieldName} in table ${tableId}`);
-    return null;
-  }
-  return info.field_id;
-}
-
-// ====== 通用：读取 Bitable 记录（fields 用 field_id 作 key） ======
+// ====== 通用：读取 Bitable 记录（fields 用“字段名”作 key） ======
 async function listBitableRecords({ appToken, tableId, filter }) {
   const token = await getTenantAccessToken();
   let pageToken = undefined;
@@ -117,7 +52,6 @@ async function listBitableRecords({ appToken, tableId, filter }) {
   do {
     const params = {
       page_size: 500,
-      // 不使用 field_names:true，返回值以 field_id 为 key
     };
     if (filter) params.filter = filter;
     if (pageToken) params.page_token = pageToken;
@@ -144,103 +78,6 @@ async function listBitableRecords({ appToken, tableId, filter }) {
 
   return allRecords;
 }
-
-// ====== 工时查询逻辑 ======
-
-// 你工时报表中用于显示/筛选人员的字段名（通常是“人员姓名 NameText”）
-const TIMESHEET_PERSON_FIELD_NAME =
-  process.env.TIMESHEET_PERSON_FIELD_NAME || "人员姓名 NameText";
-
-// 为打卡表预先解析一次各字段的 field_id
-let timesheetFieldIdsPromise = null;
-async function getTimesheetFieldIds() {
-  if (timesheetFieldIdsPromise) return timesheetFieldIdsPromise;
-
-  const appToken = process.env.BITABLE_APP_TOKEN;
-  const tableId = process.env.BITABLE_TABLE_ID;
-
-  timesheetFieldIdsPromise = (async () => {
-    const dateId = await getFieldIdByName(appToken, tableId, "日期 Date");
-    const projectId = await getFieldIdByName(appToken, tableId, "项目 Project");
-    const startId = await getFieldIdByName(
-      appToken,
-      tableId,
-      "开工时间 Start Time"
-    );
-    const endId = await getFieldIdByName(
-      appToken,
-      tableId,
-      "结束时间 End Time"
-    );
-    const hoursId = await getFieldIdByName(appToken, tableId, "工时");
-    const personNameId = await getFieldIdByName(
-      appToken,
-      tableId,
-      TIMESHEET_PERSON_FIELD_NAME
-    );
-
-    return {
-      dateId,
-      projectId,
-      startId,
-      endId,
-      hoursId,
-      personNameId,
-    };
-  })();
-
-  return timesheetFieldIdsPromise;
-}
-
-// 工时查询
-async function queryTimesheetRecords({ startDate, endDate, person }) {
-  const appToken = process.env.BITABLE_APP_TOKEN;
-  const tableId = process.env.BITABLE_TABLE_ID;
-
-  // 筛选条件仍用“字段名”，不影响返回结构
-  const filters = [];
-  if (startDate) filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
-  if (endDate) filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
-  if (person) {
-    filters.push(
-      `CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`
-    );
-  }
-  const filterStr = filters.length ? "AND(" + filters.join(",") + ")" : "";
-
-  const records = await listBitableRecords({
-    appToken,
-    tableId,
-    filter: filterStr || undefined,
-  });
-
-  const ids = await getTimesheetFieldIds();
-
-  const mapped = records.map((r) => {
-    const f = r.fields || {};
-
-    const getById = (id) => {
-      if (!id) return "";
-      const v = f[id];
-      if (Array.isArray(v)) return v.join(", ");
-      if (v === null || v === undefined) return "";
-      return v;
-    };
-
-    return {
-      date: getById(ids.dateId),
-      project: getById(ids.projectId),
-      startTime: getById(ids.startId),
-      endTime: getById(ids.endId),
-      person: getById(ids.personNameId),
-      hours: Number(f[ids.hoursId] || 0),
-    };
-  });
-
-  return mapped;
-}
-
-// ====== 人员列表逻辑 ======
 
 // 提取各种可能格式中的文本值：字符串 / 对象 / 数组
 function extractTextValues(value) {
@@ -271,7 +108,68 @@ function extractTextValues(value) {
   return result;
 }
 
-// 优先从“人员表”读取
+// ====== 工时查询逻辑 ======
+
+// 工时报表中用于显示/筛选人员的字段名
+const TIMESHEET_PERSON_FIELD_NAME =
+  process.env.TIMESHEET_PERSON_FIELD_NAME || "人员姓名 NameText";
+
+async function queryTimesheetRecords({ startDate, endDate, person }) {
+  const appToken = process.env.BITABLE_APP_TOKEN;
+  const tableId = process.env.BITABLE_TABLE_ID;
+
+  // 构造 filter（注意字段名要与 Bitable 完全一致）
+  const filters = [];
+  if (startDate) {
+    filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
+  }
+  if (endDate) {
+    filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
+  }
+  if (person) {
+    filters.push(`CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`);
+  }
+
+  const filterStr = filters.length ? "AND(" + filters.join(",") + ")" : "";
+
+  const records = await listBitableRecords({
+    appToken,
+    tableId,
+    filter: filterStr || undefined,
+  });
+
+  const mapped = records.map((r) => {
+    const f = r.fields || {};
+
+    const normalize = (v) => {
+      const arr = extractTextValues(v);
+      if (arr.length) return arr.join(", ");
+      if (Array.isArray(v)) return v.join(", ");
+      if (v === null || v === undefined) return "";
+      return v;
+    };
+
+    const personVal =
+      f[TIMESHEET_PERSON_FIELD_NAME] ||
+      f["人员姓名 NameText"] ||
+      f["人员 Applicant"];
+
+    return {
+      date: normalize(f["日期 Date"]),
+      project: normalize(f["项目 Project"]),
+      startTime: normalize(f["开工时间 Start Time"]),
+      endTime: normalize(f["结束时间 End Time"]),
+      person: normalize(personVal),
+      hours: Number(f["工时"] || 0),
+    };
+  });
+
+  return mapped;
+}
+
+// ====== 人员列表逻辑 ======
+
+// 1）优先从“人员表”读取
 async function queryAllPersonsFromPeopleTable() {
   const appToken = process.env.PEOPLE_APP_TOKEN;
   const tableId = process.env.PEOPLE_TABLE_ID;
@@ -279,9 +177,6 @@ async function queryAllPersonsFromPeopleTable() {
 
   if (!appToken || !tableId) return null; // 未配置则不使用
 
-  const nameFieldId = await getFieldIdByName(appToken, tableId, nameFieldName);
-  if (!nameFieldId) return null;
-
   const records = await listBitableRecords({
     appToken,
     tableId,
@@ -291,7 +186,7 @@ async function queryAllPersonsFromPeopleTable() {
   const personSet = new Set();
   for (const r of records) {
     const f = r.fields || {};
-    const v = f[nameFieldId];
+    const v = f[nameFieldName];
     const arr = extractTextValues(v);
     arr.forEach((name) => personSet.add(name));
   }
@@ -299,16 +194,10 @@ async function queryAllPersonsFromPeopleTable() {
   return Array.from(personSet).sort();
 }
 
-// 退而求其次：从工时报表汇总
+// 2）否则从工时报表汇总
 async function queryAllPersonsFromTimesheet() {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
-
-  const ids = await getTimesheetFieldIds();
-  const personId = ids.personNameId;
-  if (!personId) {
-    console.warn("personNameId not found for timesheet table");
-  }
 
   const records = await listBitableRecords({
     appToken,
@@ -319,7 +208,10 @@ async function queryAllPersonsFromTimesheet() {
   const personSet = new Set();
   for (const r of records) {
     const f = r.fields || {};
-    const v = personId ? f[personId] : null;
+    const v =
+      f[TIMESHEET_PERSON_FIELD_NAME] ||
+      f["人员姓名 NameText"] ||
+      f["人员 Applicant"];
     const arr = extractTextValues(v);
     arr.forEach((name) => personSet.add(name));
   }
@@ -414,7 +306,9 @@ app.get("/api/debug-people", async (req, res) => {
     res.json({ code: 0, msg: "ok", fields: records[0].fields || {} });
   } catch (e) {
     console.error("debug-people error", e);
-    res.status(500).json({ code: 1, msg: "debug people error: " + e.message });
+    res
+      .status(500)
+      .json({ code: 1, msg: "debug people error: " + e.message });
   }
 });
 
