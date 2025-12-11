@@ -367,9 +367,18 @@ app.get("/ping", (req, res) => {
 });
 
 // ====== 请求短信验证码（目前不接 Twilio，只返回 debug_code） ======
+// ====== 请求验证码（同时支持 Body 和 Query，方便调试） ======
 app.post("/api/request_code", async (req, res) => {
   try {
-    const { phone } = req.body || {};
+    // 打印一下服务器实际收到什么
+    console.log("request_code req.body =", req.body);
+    console.log("request_code req.query =", req.query);
+
+    // 优先从 body 取，没有就从 query 取
+    const bodyPhone = (req.body && req.body.phone) || "";
+    const queryPhone = (req.query && req.query.phone) || "";
+    const phone = (bodyPhone || queryPhone || "").trim();
+
     if (!phone) {
       return res.status(400).json({ code: 1, msg: "手机号必填" });
     }
@@ -383,6 +392,19 @@ app.post("/api/request_code", async (req, res) => {
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     setPhoneCode(phone, code);
+
+    console.log(`【调试】验证码发送给 ${emp.name} (${phone}): ${code}`);
+
+    res.json({
+      code: 0,
+      msg: "验证码已生成（调试环境），请查看 debug_code 或服务器日志",
+      debug_code: code,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ code: 1, msg: "Server error" });
+  }
+});
 
     // 现在先不接 Twilio，直接打印到日志 & 返回 debug_code 方便测试
     console.log(`【调试】验证码发送给 ${emp.name} (${phone}): ${code}`);
