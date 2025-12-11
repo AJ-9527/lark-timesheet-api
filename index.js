@@ -1,17 +1,19 @@
 // index.js
-// Lark Bitable 工时查询服务（适配不支持 field_names 参数的环境）
+// Lark Bitable 工时查询服务（基于 field_id 的稳定实现）
 // - /api/timesheet  按日期/人员查询打卡记录
-// - /api/people     获取人员列表（优先用人员名单表，无则从打卡表汇总）
+// - /api/people     获取人员列表（优先从人员表读取）
+// - /api/debug-record  调试：输出一条工时记录的原始 fields
+// - /api/debug-people  调试：输出一条人员记录的原始 fields
 
-const express = require('express');
-const axios = require('axios');
-require('dotenv').config();
+const express = require("express");
+const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 静态页面
-app.use(express.static('public'));
+app.use(express.static("public"));
 
 // ====== Lark tenant_access_token 缓存 ======
 let cachedToken = null;
@@ -22,17 +24,17 @@ async function getTenantAccessToken() {
   if (cachedToken && now < tokenExpireAt) return cachedToken;
 
   const resp = await axios.post(
-    'https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal',
+    "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
     {
       app_id: process.env.LARK_APP_ID,
       app_secret: process.env.LARK_APP_SECRET,
     },
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { "Content-Type": "application/json" } }
   );
 
   if (resp.data.code !== 0) {
-    console.error('getTenantAccessToken error:', resp.data);
-    throw new Error('Failed to get tenant_access_token: ' + resp.data.msg);
+    console.error("getTenantAccessToken error:", resp.data);
+    throw new Error("Failed to get tenant_access_token: " + resp.data.msg);
   }
 
   cachedToken = resp.data.tenant_access_token;
@@ -74,8 +76,8 @@ async function getFieldMeta(appToken, tableId) {
     );
 
     if (resp.data.code !== 0) {
-      console.error('getFieldMeta error:', resp.data);
-      throw new Error('Failed to list fields: ' + resp.data.msg);
+      console.error("getFieldMeta error:", resp.data);
+      throw new Error("Failed to list fields: " + resp.data.msg);
     }
 
     const data = resp.data.data || {};
@@ -106,7 +108,7 @@ async function getFieldIdByName(appToken, tableId, fieldName) {
   return info.field_id;
 }
 
-// ====== 通用：读取 Bitable 记录（返回原始 records，fields 用 field_id 作 key） ======
+// ====== 通用：读取 Bitable 记录（fields 用 field_id 作 key） ======
 async function listBitableRecords({ appToken, tableId, filter }) {
   const token = await getTenantAccessToken();
   let pageToken = undefined;
@@ -115,7 +117,7 @@ async function listBitableRecords({ appToken, tableId, filter }) {
   do {
     const params = {
       page_size: 500,
-      // 注意：这里不再使用 field_names:true
+      // 不使用 field_names:true，返回值以 field_id 为 key
     };
     if (filter) params.filter = filter;
     if (pageToken) params.page_token = pageToken;
@@ -129,8 +131,8 @@ async function listBitableRecords({ appToken, tableId, filter }) {
     );
 
     if (resp.data.code !== 0) {
-      console.error('listBitableRecords error:', resp.data);
-      throw new Error('Failed to list records: ' + resp.data.msg);
+      console.error("listBitableRecords error:", resp.data);
+      throw new Error("Failed to list records: " + resp.data.msg);
     }
 
     const data = resp.data.data || {};
@@ -145,9 +147,9 @@ async function listBitableRecords({ appToken, tableId, filter }) {
 
 // ====== 工时查询逻辑 ======
 
-// 你新建的人名文本字段，默认叫：人员姓名 NameText
+// 你工时报表中用于显示/筛选人员的字段名（通常是“人员姓名 NameText”）
 const TIMESHEET_PERSON_FIELD_NAME =
-  process.env.TIMESHEET_PERSON_FIELD_NAME || '人员姓名 NameText';
+  process.env.TIMESHEET_PERSON_FIELD_NAME || "人员姓名 NameText";
 
 // 为打卡表预先解析一次各字段的 field_id
 let timesheetFieldIdsPromise = null;
@@ -158,12 +160,24 @@ async function getTimesheetFieldIds() {
   const tableId = process.env.BITABLE_TABLE_ID;
 
   timesheetFieldIdsPromise = (async () => {
-    const dateId = await getFieldIdByName(appToken, tableId, '日期 Date');
-    const projectId = await getFieldIdByName(appToken, tableId, '项目 Project');
-    const startId = await getFieldIdByName(appToken, tableId, '开工时间 Start Time');
-    const endId = await getFieldIdByName(appToken, tableId, '结束时间 End Time');
-    const hoursId = await getFieldIdByName(appToken, tableId, '工时');
-    const personNameId = await getFieldIdByName(appToken, tableId, TIMESHEET_PERSON_FIELD_NAME);
+    const dateId = await getFieldIdByName(appToken, tableId, "日期 Date");
+    const projectId = await getFieldIdByName(appToken, tableId, "项目 Project");
+    const startId = await getFieldIdByName(
+      appToken,
+      tableId,
+      "开工时间 Start Time"
+    );
+    const endId = await getFieldIdByName(
+      appToken,
+      tableId,
+      "结束时间 End Time"
+    );
+    const hoursId = await getFieldIdByName(appToken, tableId, "工时");
+    const personNameId = await getFieldIdByName(
+      appToken,
+      tableId,
+      TIMESHEET_PERSON_FIELD_NAME
+    );
 
     return {
       dateId,
@@ -178,7 +192,7 @@ async function getTimesheetFieldIds() {
   return timesheetFieldIdsPromise;
 }
 
-// 查询工时记录
+// 工时查询
 async function queryTimesheetRecords({ startDate, endDate, person }) {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
@@ -188,9 +202,11 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
   if (startDate) filters.push(`CurrentValue.[日期 Date] >= "${startDate}"`);
   if (endDate) filters.push(`CurrentValue.[日期 Date] <= "${endDate}"`);
   if (person) {
-    filters.push(`CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`);
+    filters.push(
+      `CurrentValue.[${TIMESHEET_PERSON_FIELD_NAME}] = "${person}"`
+    );
   }
-  const filterStr = filters.length ? 'AND(' + filters.join(',') + ')' : '';
+  const filterStr = filters.length ? "AND(" + filters.join(",") + ")" : "";
 
   const records = await listBitableRecords({
     appToken,
@@ -204,10 +220,10 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
     const f = r.fields || {};
 
     const getById = (id) => {
-      if (!id) return '';
+      if (!id) return "";
       const v = f[id];
-      if (Array.isArray(v)) return v.join(', ');
-      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return v.join(", ");
+      if (v === null || v === undefined) return "";
       return v;
     };
 
@@ -225,14 +241,41 @@ async function queryTimesheetRecords({ startDate, endDate, person }) {
 }
 
 // ====== 人员列表逻辑 ======
-//
-// 优先从“人员名单表”取（若配置了 PEOPLE_* 环境变量）
-// 否则从打卡表里汇总“人员姓名 NameText”
 
+// 提取各种可能格式中的文本值：字符串 / 对象 / 数组
+function extractTextValues(value) {
+  const result = [];
+
+  const addIfGood = (s) => {
+    if (typeof s === "string") {
+      const t = s.trim();
+      if (t) result.push(t);
+    }
+  };
+
+  if (typeof value === "string") {
+    addIfGood(value);
+  } else if (Array.isArray(value)) {
+    value.forEach((item) => {
+      if (typeof item === "string") addIfGood(item);
+      else if (item && typeof item === "object") {
+        if (item.text) addIfGood(String(item.text));
+        if (item.name) addIfGood(String(item.name));
+      }
+    });
+  } else if (value && typeof value === "object") {
+    if (value.text) addIfGood(String(value.text));
+    if (value.name) addIfGood(String(value.name));
+  }
+
+  return result;
+}
+
+// 优先从“人员表”读取
 async function queryAllPersonsFromPeopleTable() {
   const appToken = process.env.PEOPLE_APP_TOKEN;
   const tableId = process.env.PEOPLE_TABLE_ID;
-  const nameFieldName = process.env.PEOPLE_NAME_FIELD || '姓名';
+  const nameFieldName = process.env.PEOPLE_NAME_FIELD || "姓名";
 
   if (!appToken || !tableId) return null; // 未配置则不使用
 
@@ -249,14 +292,14 @@ async function queryAllPersonsFromPeopleTable() {
   for (const r of records) {
     const f = r.fields || {};
     const v = f[nameFieldId];
-    if (typeof v === 'string' && v.trim()) {
-      personSet.add(v.trim());
-    }
+    const arr = extractTextValues(v);
+    arr.forEach((name) => personSet.add(name));
   }
 
   return Array.from(personSet).sort();
 }
 
+// 退而求其次：从工时报表汇总
 async function queryAllPersonsFromTimesheet() {
   const appToken = process.env.BITABLE_APP_TOKEN;
   const tableId = process.env.BITABLE_TABLE_ID;
@@ -264,7 +307,7 @@ async function queryAllPersonsFromTimesheet() {
   const ids = await getTimesheetFieldIds();
   const personId = ids.personNameId;
   if (!personId) {
-    console.warn('personNameId not found for timesheet table');
+    console.warn("personNameId not found for timesheet table");
   }
 
   const records = await listBitableRecords({
@@ -277,28 +320,20 @@ async function queryAllPersonsFromTimesheet() {
   for (const r of records) {
     const f = r.fields || {};
     const v = personId ? f[personId] : null;
-
-    if (Array.isArray(v)) {
-      v.forEach((item) => {
-        if (typeof item === 'string' && item.trim()) {
-          personSet.add(item.trim());
-        }
-      });
-    } else if (typeof v === 'string' && v.trim()) {
-      personSet.add(v.trim());
-    }
+    const arr = extractTextValues(v);
+    arr.forEach((name) => personSet.add(name));
   }
 
   return Array.from(personSet).sort();
 }
 
 async function queryAllPersons() {
-  // 1）优先尝试人员名单表
+  // 1）优先尝试人员表
   try {
     const fromPeople = await queryAllPersonsFromPeopleTable();
     if (fromPeople && fromPeople.length) return fromPeople;
   } catch (e) {
-    console.warn('queryAllPersonsFromPeopleTable failed:', e.message);
+    console.warn("queryAllPersonsFromPeopleTable failed:", e.message);
   }
 
   // 2）否则从工时报表汇总
@@ -306,12 +341,12 @@ async function queryAllPersons() {
 }
 
 // ====== 健康检查 ======
-app.get('/ping', (req, res) => {
-  res.send('OK');
+app.get("/ping", (req, res) => {
+  res.send("OK");
 });
 
 // ====== API：工时查询 ======
-app.get('/api/timesheet', async (req, res) => {
+app.get("/api/timesheet", async (req, res) => {
   try {
     const { start_date, end_date, person } = req.query;
     const records = await queryTimesheetRecords({
@@ -322,23 +357,23 @@ app.get('/api/timesheet', async (req, res) => {
     res.json({ code: 0, data: records });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ code: 1, msg: 'Server error' });
+    res.status(500).json({ code: 1, msg: "Server error" });
   }
 });
 
 // ====== API：人员列表 ======
-app.get('/api/people', async (req, res) => {
+app.get("/api/people", async (req, res) => {
   try {
     const persons = await queryAllPersons();
     res.json({ code: 0, data: persons });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ code: 1, msg: 'Server error' });
+    res.status(500).json({ code: 1, msg: "Server error" });
   }
 });
 
-// ====== （可选）调试接口：看一条记录的 fields（field_id→值） ======
-app.get('/api/debug-record', async (req, res) => {
+// ====== 调试：工时表的一条记录 ======
+app.get("/api/debug-record", async (req, res) => {
   try {
     const appToken = process.env.BITABLE_APP_TOKEN;
     const tableId = process.env.BITABLE_TABLE_ID;
@@ -348,12 +383,38 @@ app.get('/api/debug-record', async (req, res) => {
       filter: undefined,
     });
     if (!records.length) {
-      return res.json({ code: 0, msg: 'no records', fields: {} });
+      return res.json({ code: 0, msg: "no records", fields: {} });
     }
-    res.json({ code: 0, msg: 'ok', fields: records[0].fields || {} });
+    res.json({ code: 0, msg: "ok", fields: records[0].fields || {} });
   } catch (e) {
-    console.error('debug-record error', e);
-    res.status(500).json({ code: 1, msg: 'debug error: ' + e.message });
+    console.error("debug-record error", e);
+    res.status(500).json({ code: 1, msg: "debug error: " + e.message });
+  }
+});
+
+// ====== 调试：人员表的一条记录 ======
+app.get("/api/debug-people", async (req, res) => {
+  try {
+    const appToken = process.env.PEOPLE_APP_TOKEN;
+    const tableId = process.env.PEOPLE_TABLE_ID;
+    if (!appToken || !tableId) {
+      return res.json({
+        code: 1,
+        msg: "PEOPLE_APP_TOKEN or PEOPLE_TABLE_ID not set",
+      });
+    }
+    const records = await listBitableRecords({
+      appToken,
+      tableId,
+      filter: undefined,
+    });
+    if (!records.length) {
+      return res.json({ code: 0, msg: "no records", fields: {} });
+    }
+    res.json({ code: 0, msg: "ok", fields: records[0].fields || {} });
+  } catch (e) {
+    console.error("debug-people error", e);
+    res.status(500).json({ code: 1, msg: "debug people error: " + e.message });
   }
 });
 
