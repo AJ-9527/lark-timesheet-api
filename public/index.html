@@ -5,228 +5,421 @@
   <title>工时查询</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-        Arial, "Noto Sans", sans-serif;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 16px;
-      background: #fafafa;
-    }
-    h2 {
-      margin-top: 0;
-    }
-    .card {
-      background: #ffffff;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-      margin-bottom: 16px;
-    }
-    .form-row {
-      margin-bottom: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .form-row label {
-      min-width: 90px;
-      margin-right: 8px;
-      font-size: 14px;
-    }
-    .form-row input,
-    .form-row select,
-    .form-row button {
-      padding: 4px 8px;
-      font-size: 14px;
-    }
-    button {
-      cursor: pointer;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      background: #fff;
-    }
-    button:hover {
-      background: #f0f0f0;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 16px;
-      font-size: 13px;
-      background: #fff;
-    }
-    th,
-    td {
-      border: 1px solid #ddd;
-      padding: 4px 8px;
-      text-align: left;
-    }
-    th {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: #f5f5f5;
     }
-    #summary {
-      margin-top: 12px;
-      font-weight: 500;
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
     }
-    #loading {
-      margin-top: 8px;
-      color: #666;
+    h1 {
+      font-size: 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .form-row {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #555;
+    }
+    input[type="text"],
+    input[type="tel"],
+    input[type="date"] {
+      width: 100%;
+      padding: 8px 10px;
       font-size: 14px;
-      display: none;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    @media (max-width: 600px) {
-      .form-row {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .form-row label {
-        margin-bottom: 4px;
-      }
+    input:focus {
+      border-color: #3370ff;
+    }
+    .row-inline {
+      display: flex;
+      gap: 8px;
+    }
+    .row-inline > div {
+      flex: 1;
+    }
+    button {
+      display: inline-block;
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #3370ff;
+      color: #fff;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #f2f3f5;
+      color: #333;
+    }
+    .tips {
+      font-size: 12px;
+      color: #888;
+    }
+    .status {
+      font-size: 13px;
+      margin-top: 4px;
+      min-height: 18px;
+    }
+    .status.error {
+      color: #d93026;
+    }
+    .status.success {
+      color: #188038;
+    }
+    .status.info {
+      color: #555;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 6px 4px;
+      text-align: left;
+      word-break: break-all;
+    }
+    th {
+      background: #fafafa;
+      font-weight: 600;
+    }
+    .total-row {
+      margin-top: 8px;
+      font-size: 13px;
+      text-align: right;
+    }
+    .muted {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <h2>工时查询</h2>
+  <div class="container">
+    <h1>工时查询</h1>
 
-  <div class="card">
-    <p style="font-size: 14px; color: #666; margin-top: 0;">
-      选择时间范围和人员后点击「查询」。如果不选人员，则查询所有人。
-    </p>
-
-    <div class="form-row">
-      <label for="startDate">开始日期：</label>
-      <input type="date" id="startDate" />
+    <!-- 登录卡片：手机号 + 验证码 -->
+    <div class="card" id="login-card">
+      <div class="card-title">登录</div>
+      <div class="form-row">
+        <label for="phone-input">手机号</label>
+        <input id="phone-input" type="tel" placeholder="请输入您的手机号" />
+        <div class="tips">必须与公司员工信息中的手机号一致。</div>
+      </div>
+      <div class="form-row row-inline">
+        <div>
+          <label for="code-input">验证码</label>
+          <input id="code-input" type="text" placeholder="6位数字" />
+        </div>
+        <div style="align-self: flex-end;">
+          <button id="btn-send-code" type="button">获取验证码</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <button id="btn-login" type="button" class="btn-secondary">登录并绑定账号</button>
+      </div>
+      <div id="login-status" class="status info"></div>
     </div>
 
-    <div class="form-row">
-      <label for="endDate">结束日期：</label>
-      <input type="date" id="endDate" />
+    <!-- 查询卡片：日期范围 + 查询 -->
+    <div class="card hidden" id="query-card">
+      <div class="card-title">
+        查询条件
+        <span id="current-user-label" style="font-size:12px;font-weight:400;color:#666;"></span>
+      </div>
+      <div class="form-row row-inline">
+        <div>
+          <label for="start-date">开始日期</label>
+          <input id="start-date" type="date" />
+        </div>
+        <div>
+          <label for="end-date">结束日期</label>
+          <input id="end-date" type="date" />
+        </div>
+      </div>
+      <div class="form-row">
+        <button id="btn-query" type="button">查询工时</button>
+      </div>
+      <div id="query-status" class="status info"></div>
     </div>
 
-    <div class="form-row">
-      <label for="person">人员：</label>
-      <select id="person">
-        <option value="">（全部）</option>
-        <!-- 其余选项由脚本自动填充 -->
-      </select>
+    <!-- 结果卡片：表格 + 合计 -->
+    <div class="card hidden" id="result-card">
+      <div class="card-title">查询结果</div>
+      <div id="result-empty" class="tips">暂无数据，请先选择日期并查询。</div>
+      <div id="result-table-wrapper" class="hidden">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>项目</th>
+              <th>上班</th>
+              <th>下班</th>
+              <th>工时</th>
+            </tr>
+          </thead>
+          <tbody id="result-tbody"></tbody>
+        </table>
+        <div class="total-row" id="total-row"></div>
+      </div>
     </div>
 
-    <div class="form-row">
-      <button id="queryBtn">查询</button>
+    <div class="muted">
+      本页面仅用于查询个人工时，如有问题请联系办公室。
     </div>
-
-    <div id="loading">查询中，请稍候...</div>
-  </div>
-
-  <div class="card">
-    <table id="resultTable" style="display: none;">
-      <thead>
-        <tr>
-          <th>日期</th>
-          <th>项目</th>
-          <th>开始时间</th>
-          <th>结束时间</th>
-          <th>人员</th>
-          <th>工时</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <p id="summary"></p>
   </div>
 
   <script>
-    const queryBtn = document.getElementById('queryBtn');
-    const loadingEl = document.getElementById('loading');
-    const table = document.getElementById('resultTable');
-    const tbody = table.querySelector('tbody');
-    const summaryEl = document.getElementById('summary');
-    const personSelect = document.getElementById('person');
+    const btnSendCode = document.getElementById("btn-send-code");
+    const btnLogin = document.getElementById("btn-login");
+    const btnQuery = document.getElementById("btn-query");
 
-    // 页面加载时，从后端拉取人员列表
-    async function loadPersons() {
+    const phoneInput = document.getElementById("phone-input");
+    const codeInput = document.getElementById("code-input");
+    const loginStatus = document.getElementById("login-status");
+
+    const loginCard = document.getElementById("login-card");
+    const queryCard = document.getElementById("query-card");
+    const resultCard = document.getElementById("result-card");
+    const queryStatus = document.getElementById("query-status");
+
+    const startDateInput = document.getElementById("start-date");
+    const endDateInput = document.getElementById("end-date");
+    const currentUserLabel = document.getElementById("current-user-label");
+
+    const resultEmpty = document.getElementById("result-empty");
+    const resultTableWrapper = document.getElementById("result-table-wrapper");
+    const resultTbody = document.getElementById("result-tbody");
+    const totalRow = document.getElementById("total-row");
+
+    let sessionToken = null;
+    let currentPersonName = null;
+
+    function setLoginStatus(text, type) {
+      loginStatus.textContent = text || "";
+      loginStatus.className = "status " + (type || "info");
+    }
+
+    function setQueryStatus(text, type) {
+      queryStatus.textContent = text || "";
+      queryStatus.className = "status " + (type || "info");
+    }
+
+    function setLoading(button, loadingText) {
+      if (!button) return;
+      button.dataset.originalText = button.textContent;
+      button.textContent = loadingText;
+      button.disabled = true;
+    }
+
+    function clearLoading(button) {
+      if (!button) return;
+      const original = button.dataset.originalText;
+      if (original) button.textContent = original;
+      button.disabled = false;
+    }
+
+    async function requestCode() {
+      const phone = phoneInput.value.trim();
+      if (!phone) {
+        setLoginStatus("请输入手机号。", "error");
+        return;
+      }
+      setLoginStatus("", "info");
+      setLoading(btnSendCode, "发送中...");
+
       try {
-        const res = await fetch('/api/people');
+        const res = await fetch("/api/request_code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone })
+        });
         const data = await res.json();
         if (data.code !== 0) {
-          return;
+          setLoginStatus(data.msg || "验证码发送失败。", "error");
+        } else {
+          // 调试阶段可提示 debug_code，正式使用时可以去掉
+          setLoginStatus("验证码已发送（测试环境 debug_code: " + (data.debug_code || "******") + "）", "success");
         }
-
-        const persons = data.data || [];
-        persons.forEach((name) => {
-          if (!name) return;
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          personSelect.appendChild(opt);
-        });
-      } catch (err) {
-        console.error('loadPersons error:', err);
-        // 失败也无所谓，用户仍然可以查询“全部人员”
+      } catch (e) {
+        console.error(e);
+        setLoginStatus("网络错误，请稍后再试。", "error");
+      } finally {
+        clearLoading(btnSendCode);
       }
     }
 
-    loadPersons();
-
-    queryBtn.addEventListener('click', async () => {
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
-      const person = personSelect.value;
-
-      const params = new URLSearchParams();
-      if (startDate) params.append('start_date', startDate);
-      if (endDate) params.append('end_date', endDate);
-      if (person) params.append('person', person);
-
-      loadingEl.style.display = 'block';
-      summaryEl.textContent = '';
-      tbody.innerHTML = '';
-      table.style.display = 'none';
+    async function doLogin() {
+      const phone = phoneInput.value.trim();
+      const code = codeInput.value.trim();
+      if (!phone || !code) {
+        setLoginStatus("请填写手机号和验证码。", "error");
+        return;
+      }
+      setLoading(btnLogin, "登录中...");
+      setLoginStatus("", "info");
 
       try {
-        const res = await fetch('/api/timesheet?' + params.toString());
+        const res = await fetch("/api/verify_code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, code })
+        });
         const data = await res.json();
-
         if (data.code !== 0) {
-          alert('查询失败，请稍后再试');
-          loadingEl.style.display = 'none';
+          setLoginStatus(data.msg || "登录失败。", "error");
           return;
         }
+        sessionToken = data.token;
+        currentPersonName = data.personName;
 
-        const records = data.data || [];
-        let totalHours = 0;
+        setLoginStatus("登录成功！", "success");
+        loginCard.classList.add("hidden");
+        queryCard.classList.remove("hidden");
+        resultCard.classList.remove("hidden");
+        currentUserLabel.textContent = "（当前： " + (currentPersonName || "") + " ）";
 
-        records.forEach((item) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${item.date || ''}</td>
-            <td>${item.project || ''}</td>
-            <td>${item.startTime || ''}</td>
-            <td>${item.endTime || ''}</td>
-            <td>${item.person || ''}</td>
-            <td>${item.hours || 0}</td>
-          `;
-          tbody.appendChild(tr);
-
-          const h = parseFloat(item.hours) || 0;
-          totalHours += h;
-        });
-
-        if (records.length) {
-          table.style.display = 'table';
-          summaryEl.textContent = `共 ${records.length} 条记录，总工时：${totalHours.toFixed(2)} 小时`;
-        } else {
-          summaryEl.textContent = '没有查询到记录';
-        }
-      } catch (err) {
-        console.error(err);
-        alert('网络错误或服务器异常，请稍后再试');
+        // 默认把开始/结束日期设为今天
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        startDateInput.value = todayStr;
+        endDateInput.value = todayStr;
+      } catch (e) {
+        console.error(e);
+        setLoginStatus("网络错误，请稍后再试。", "error");
       } finally {
-        loadingEl.style.display = 'none';
+        clearLoading(btnLogin);
       }
-    });
+    }
+
+    function renderResults(records) {
+      if (!records || !records.length) {
+        resultEmpty.classList.remove("hidden");
+        resultTableWrapper.classList.add("hidden");
+        resultTbody.innerHTML = "";
+        totalRow.textContent = "";
+        return;
+      }
+
+      resultEmpty.classList.add("hidden");
+      resultTableWrapper.classList.remove("hidden");
+      resultTbody.innerHTML = "";
+
+      let totalHours = 0;
+
+      records.forEach((r) => {
+        const tr = document.createElement("tr");
+        const tdDate = document.createElement("td");
+        const tdProject = document.createElement("td");
+        const tdStart = document.createElement("td");
+        const tdEnd = document.createElement("td");
+        const tdHours = document.createElement("td");
+
+        tdDate.textContent = r.date || "";
+        tdProject.textContent = r.project || "";
+        tdStart.textContent = r.startTime || "";
+        tdEnd.textContent = r.endTime || "";
+        tdHours.textContent = (r.hours != null ? r.hours : "");
+
+        totalHours += Number(r.hours || 0);
+
+        tr.appendChild(tdDate);
+        tr.appendChild(tdProject);
+        tr.appendChild(tdStart);
+        tr.appendChild(tdEnd);
+        tr.appendChild(tdHours);
+
+        resultTbody.appendChild(tr);
+      });
+
+      totalRow.textContent = "合计工时：" + totalHours.toFixed(2);
+    }
+
+    async function queryTimesheet() {
+      if (!sessionToken) {
+        setQueryStatus("请先登录。", "error");
+        return;
+      }
+      const startDate = startDateInput.value;
+      const endDate = endDateInput.value;
+      if (!startDate || !endDate) {
+        setQueryStatus("请选择开始和结束日期。", "error");
+        return;
+      }
+      setQueryStatus("查询中...", "info");
+      setLoading(btnQuery, "查询中...");
+
+      try {
+        const params = new URLSearchParams();
+        params.append("start_date", startDate);
+        params.append("end_date", endDate);
+        params.append("session_token", sessionToken);
+
+        const res = await fetch("/api/timesheet?" + params.toString());
+        const data = await res.json();
+        if (data.code !== 0) {
+          setQueryStatus(data.msg || "查询失败。", "error");
+          renderResults([]);
+        } else {
+          setQueryStatus("查询完成。", "success");
+          renderResults(data.data || []);
+        }
+      } catch (e) {
+        console.error(e);
+        setQueryStatus("网络错误，请稍后再试。", "error");
+        renderResults([]);
+      } finally {
+        clearLoading(btnQuery);
+      }
+    }
+
+    // 绑定事件
+    btnSendCode.addEventListener("click", requestCode);
+    btnLogin.addEventListener("click", doLogin);
+    btnQuery.addEventListener("click", queryTimesheet);
   </script>
 </body>
 </html>
