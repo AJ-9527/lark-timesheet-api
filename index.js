@@ -13,6 +13,50 @@ const axios = require("axios");
 const crypto = require("crypto");
 require("dotenv").config();
 
+const twilio = require("twilio");
+
+const twilioClient =
+  process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    : null;
+
+/**
+ * 将手机号规范化为 E.164（加拿大）
+ * 6041234567  -> +16041234567
+ * +16041234567 -> +16041234567
+ */
+function normalizeCanadaPhone(phone) {
+  if (!phone) return null;
+  const p = phone.trim();
+
+  if (/^\+1\d{10}$/.test(p)) return p;
+  if (/^\d{10}$/.test(p)) return `+1${p}`;
+
+  return null;
+}
+
+async function sendSmsTwilio(toPhone, code) {
+  if (!twilioClient) {
+    throw new Error("Twilio not configured");
+  }
+
+  const from = process.env.TWILIO_FROM;
+  if (!from) {
+    throw new Error("TWILIO_FROM not set");
+  }
+
+  const message =
+`【Lumi HVAC】
+验证码 Verification Code: ${code}
+5分钟内有效 · Valid for 5 minutes`;
+
+  return await twilioClient.messages.create({
+    to: toPhone,
+    from,
+    body: message
+  });
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -368,39 +412,39 @@ app.get("/ping", (req, res) => {
 
 // ====== 请求验证码（同时支持 Body 和 Query，方便调试） ======
 app.post("/api/request_code", async (req, res) => {
-  try {
-    console.log("request_code req.body =", req.body);
-    console.log("request_code req.query =", req.query);
+  // 原始手机号（6041234567）
+const rawPhone = phone;
 
-    const bodyPhone = (req.body && req.body.phone) || "";
-    const queryPhone = (req.query && req.query.phone) || "";
-    const phone = (bodyPhone || queryPhone || "").trim();
+// 转成 +1604...
+const e164Phone = normalizeCanadaPhone(rawPhone);
+if (!e164Phone) {
+  return res.json({
+    code: 1,
+    msg: "手机号格式不正确 / Invalid phone number format"
+  });
+}
 
-    if (!phone) {
-      return res.status(400).json({ code: 1, msg: "手机号必填" });
-    }
+// 生成验证码（你原来就有）
+const code = String(Math.floor(100000 + Math.random() * 900000));
 
-    const emp = await findEmployeeByPhone(phone);
-    if (!emp) {
-      return res
-        .status(400)
-        .json({ code: 1, msg: "该手机号在员工信息中不存在" });
-    }
+// 存储验证码（你原来的逻辑）
+setPhoneCode(rawPhone, code);
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setPhoneCode(phone, code);
+// 发送短信
+try {
+  await sendSmsTwilio(e164Phone, code);
+} catch (err) {
+  console.error("Twilio send error:", err);
+  return res.json({
+    code: 1,
+    msg: "短信发送失败 / Failed to send SMS"
+  });
+}
 
-    console.log(`【调试】验证码发送给 ${emp.name} (${phone}): ${code}`);
-
-    res.json({
-      code: 0,
-      msg: "验证码已生成（调试环境），请查看 debug_code 或服务器日志",
-      debug_code: code,
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ code: 1, msg: "Server error" });
-  }
+// 生产环境：不再返回 debug_code
+return res.json({
+  code: 0,
+  msg: "验证码已发送 / Verification code sent"
 });
 
 // ====== 校验验证码，生成 session_token ======
