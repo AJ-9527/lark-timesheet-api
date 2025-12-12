@@ -77,9 +77,26 @@
       text-align: center;
       line-height: 1.4;
     }
+  .logo-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+  .logo-wrap img {
+      height: 52px;        /* 手机友好 */
+      max-width: 80%;
+      object-fit: contain;
+    }
+
   </style>
 </head>
 <body>
+  <div class="logo-wrap">
+    <img src="/logo.png" alt="Lumi HVAC Ltd Logo" />
+  </div>
+  
   <div class="container">
     <h1>考勤入口 · Attendance</h1>
     <div class="subtitle">
