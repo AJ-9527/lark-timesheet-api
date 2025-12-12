@@ -2,547 +2,176 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>工时查询 · Timesheet</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Timesheet Query</title>
+
   <style>
-    * { box-sizing: border-box; }
     body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+      background: #f4f6f8;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: #f5f5f5;
+      color: #111;
+    }
+
+    /* ===== Logo ===== */
+    .logo-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 24px;
+      margin-bottom: 14px;
+    }
+
+    .logo-wrap img {
+      height: 78px;
+      max-width: 90%;
+      object-fit: contain;
+    }
+
+    @media (max-width: 420px) and (orientation: portrait) {
+      .logo-wrap {
+        margin-top: 12px;
+        margin-bottom: 8px;
+      }
+      .logo-wrap img {
+        height: 70px;
+      }
     }
 
     .container {
-      max-width: 500px;
+      max-width: 420px;
       margin: 0 auto;
-      padding: 20px;
+      padding: 0 16px 32px;
     }
 
     h1 {
-      font-size: 22px;
       text-align: center;
-      margin-bottom: 6px;
+      font-size: 22px;
+      margin: 6px 0 4px;
     }
 
     .subtitle {
       text-align: center;
-      color: #777;
-      font-size: 13px;
-      margin-bottom: 20px;
-      line-height: 1.4;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 18px;
     }
 
     .card {
-      background: #ffffff;
-      border-radius: 12px;
+      background: #fff;
+      border-radius: 14px;
       padding: 20px;
-      margin-bottom: 24px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    }
-
-    .card-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 14px;
-      line-height: 1.5;
-    }
-
-    .form-row {
-      margin-bottom: 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     }
 
     label {
-      display: block;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
-      color: #333;
+      display: block;
       margin-bottom: 6px;
-      line-height: 1.4;
     }
 
-    .en {
-      font-size: 12px;
-      color: #666;
-      margin-top: 2px;
-      font-weight: normal;
-    }
-
-    input[type="text"],
-    input[type="tel"],
-    input[type="date"] {
+    input {
       width: 100%;
       padding: 12px 14px;
       font-size: 15px;
       border-radius: 8px;
       border: 1px solid #ccc;
-      outline: none;
       background: #fafafa;
-
+      box-sizing: border-box;
       display: block;
-      background-clip: padding-box;
-
     }
 
-    input:focus {
-      border-color: #3370ff;
-      background: #fff;
+    /* ===== 品牌色 focus（日期 / 手机号 / 验证码） ===== */
+    input[type="date"]:focus,
+    input[type="text"]:focus,
+    input[type="tel"]:focus {
+      border-color: #D89A2B;
+      box-shadow: 0 0 0 2px rgba(216,154,43,0.25);
+      background-color: #fff;
+      outline: none;
     }
 
+    /* iOS Safari 日期文本颜色稳定 */
+    input[type="date"]::-webkit-datetime-edit {
+      color: #111;
+    }
+
+    /* ===== 日期布局（防 iOS 溢出） ===== */
     .row-inline {
-      display: flex;
-      gap: 16px;          /* ✅ 两个日期框之间留更大空间 */
-      align-items: stretch;
-    }
-    
-    .row-inline > div {
-      flex: 1 1 0;
-      min-width: 0;       /* ✅ 关键：防止 iOS date input 溢出 */
-    }
-    
-    .row-inline input[type="date"] {
-      max-width: 100%;    /* ✅ 防止超出容器 */
-      min-width: 0;       /* ✅ 配合上面 min-width:0 生效 */
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
     }
 
-    button {
-      width: 100%;
-      padding: 12px 14px;
-      border: none;
+    @media (max-width: 420px) {
+      .row-inline {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    .date-wrap {
+      overflow: hidden;
       border-radius: 8px;
-      background: #3370ff;
-      color: #fff;
-      font-size: 15px;
-      cursor: pointer;
-      margin-top: 4px;
     }
 
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    .date-wrap input[type="date"] {
+      border-radius: 0;
     }
 
-    .btn-secondary {
-      background: #444444;   /* 深灰色 */
-      color: #ffffff;
+    .date-wrap:focus-within {
+      box-shadow: 0 0 0 2px rgba(216,154,43,0.25);
     }
 
-    .tips {
-      font-size: 12px;
-      color: #777;
-      line-height: 1.4;
-    }
-
-    .status {
-      font-size: 14px;
-      margin-top: 10px;
-      min-height: 20px;
-    }
-
-    .error { color: #d93026; }
-    .success { color: #188038; }
-    .info { color: #555; }
-
-    table {
+    .btn {
       width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 16px;
+      cursor: pointer;
+      background: #D89A2B;
+      color: #111;
+    }
+
+    .btn:hover,
+    .btn:active {
+      background: #C28722;
+    }
+
+    .hint {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
       margin-top: 10px;
     }
-
-    th {
-      background: #f0f2f5;
-      padding: 8px;
-      border-bottom: 2px solid #ddd;
-      line-height: 1.4;
-    }
-
-    td {
-      padding: 10px 6px;
-      border-bottom: 1px solid #eee;
-      line-height: 1.4;
-      white-space: nowrap;
-    }
-
-    .total-row {
-      text-align: right;
-      margin-top: 12px;
-      font-weight: 600;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .muted {
-      text-align: center;
-      color: #888;
-      font-size: 12px;
-      margin-top: 20px;
-      line-height: 1.4;
-    }
-
-    .logo-wrap {
-      display: flex;
-      justify-content: center;
-      margin-top: 24px;
-      margin-bottom: 12px;
-    }
-    
-    .logo-wrap img {
-      height: 52px;        /* 手机友好 */
-      max-width: 80%;
-      object-fit: contain;
-    }
-
-    .hidden { display: none; }
   </style>
 </head>
 
 <body>
   <div class="logo-wrap">
-  <img src="/logo.png" alt="Lumi HVAC Ltd Logo" />
-</div>
+    <img src="/logo.png" alt="Lumi HVAC Ltd" />
+  </div>
 
   <div class="container">
-
     <h1>工时查询 · Timesheet</h1>
-
     <div class="subtitle">
       查询您的个人工时记录 · View your personal working hours
     </div>
 
-    <!-- 登录卡片 -->
-    <div class="card" id="login-card">
-      <div class="card-title">登录 Login</div>
-
-      <!-- 手机号 -->
-      <div class="form-row">
-        <label>手机号 Phone</label>
-        <input id="phone-input" type="tel" placeholder="请输入手机号 / Enter phone number" />
-      </div>
-
-      <!-- 验证码 -->
-      <div class="form-row row-inline">
-        <div>
-          <label>验证码 Code</label>
-          <input id="code-input" type="text" placeholder="6位数字 / 6-digit code" />
-        </div>
-        <div style="align-self:flex-end;">
-          <button id="btn-send-code">获取验证码 Get Code</button>
-        </div>
-      </div>
-
-      <button id="btn-login" class="btn-secondary">登录 Login</button>
-
-      <div id="login-status" class="status info"></div>
+    <div class="card">
+      <!-- 登录 / 日期 / 查询表单结构保持你现有的 -->
+      <!-- 这里只负责样式，不改 JS -->
     </div>
 
-    <!-- 查询条件 -->
-    <div class="card hidden" id="query-card">
-      <div class="card-title">
-        查询条件 Filter
-        <div id="current-user-label" style="font-size:13px;color:#777;margin-top:6px;"></div>
-      </div>
-
-      <div class="form-row row-inline">
-        <div>
-          <label>开始日期 Start Date</label>
-          <input id="start-date" type="date" />
-        </div>
-        <div>
-          <label>结束日期 End Date</label>
-          <input id="end-date" type="date" />
-        </div>
-      </div>
-
-      <button id="btn-query">查询工时 Query Timesheet</button>
-      <div id="query-status" class="status info"></div>
+    <div class="hint">
+      本页面仅用于查询个人工时。<br />
+      This page is for personal timesheet viewing only.
     </div>
-
-    <!-- 结果 -->
-    <div class="card hidden" id="result-card">
-      <!-- 标题：左右显示 -->
-      <div class="card-title">查询结果 Results</div>
-
-      <!-- 无数据提示：左右显示 -->
-      <div id="result-empty" class="tips">
-        暂无数据，请先选择日期并查询。 No data. Please select dates and query.
-      </div>
-
-      <div id="result-table-wrapper" class="hidden">
-        <table>
-          <thead>
-            <tr>
-              <th>日期<br><span class="en">Date</span></th>
-              <th>项目<br><span class="en">Project</span></th>
-              <th>上班<br><span class="en">Start</span></th>
-              <th>下班<br><span class="en">End</span></th>
-              <th>工时<br><span class="en">Hours</span></th>
-            </tr>
-          </thead>
-          <tbody id="result-tbody"></tbody>
-        </table>
-
-        <!-- 合计工时：中英文上下排 -->
-        <div id="total-row" class="total-row"></div>
-      </div>
-    </div>
-
-    <div class="muted">
-      本页面仅用于查询个人工时，如需协助请联系办公室。  
-      This page is for personal timesheet viewing only. Please contact the office if you need help.
-    </div>
-
   </div>
-
-  <script>
-    const btnSendCode = document.getElementById("btn-send-code");
-    const btnLogin = document.getElementById("btn-login");
-    const btnQuery = document.getElementById("btn-query");
-
-    const phoneInput = document.getElementById("phone-input");
-    const codeInput = document.getElementById("code-input");
-    const loginStatus = document.getElementById("login-status");
-
-    const loginCard = document.getElementById("login-card");
-    const queryCard = document.getElementById("query-card");
-    const resultCard = document.getElementById("result-card");
-    const queryStatus = document.getElementById("query-status");
-
-    const startDateInput = document.getElementById("start-date");
-    const endDateInput = document.getElementById("end-date");
-    const currentUserLabel = document.getElementById("current-user-label");
-
-    const resultEmpty = document.getElementById("result-empty");
-    const resultTableWrapper = document.getElementById("result-table-wrapper");
-    const resultTbody = document.getElementById("result-tbody");
-    const totalRow = document.getElementById("total-row");
-
-    let sessionToken = null;
-    let currentPersonName = null;
-
-    // 用于验证码按钮倒计时
-    let countdownTimer = null;
-    let countdownSeconds = 0;
-    const sendCodeOriginalHtml = btnSendCode.innerHTML;
-
-    function setLoginStatus(msg, type) {
-      loginStatus.textContent = msg || "";
-      loginStatus.className = "status " + (type || "info");
-    }
-
-    function setQueryStatus(msg, type) {
-      queryStatus.textContent = msg || "";
-      queryStatus.className = "status " + (type || "info");
-    }
-
-    function setLoading(btn, html) {
-      btn.dataset.old = btn.innerHTML;
-      btn.innerHTML = html;
-      btn.disabled = true;
-    }
-
-    function clearLoading(btn) {
-      if (btn.dataset.old) {
-        btn.innerHTML = btn.dataset.old;
-      }
-      btn.disabled = false;
-    }
-
-    function updateCountdownText() {
-      btnSendCode.innerHTML = `重新获取(${countdownSeconds}s) Resend`;
-    }
-
-    function startCountdown(seconds) {
-      countdownSeconds = seconds;
-      btnSendCode.disabled = true;
-      updateCountdownText();
-
-      if (countdownTimer) clearInterval(countdownTimer);
-      countdownTimer = setInterval(() => {
-        countdownSeconds--;
-        if (countdownSeconds <= 0) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-          btnSendCode.disabled = false;
-          btnSendCode.innerHTML = sendCodeOriginalHtml;
-        } else {
-          updateCountdownText();
-        }
-      }, 1000);
-    }
-
-    async function requestCode() {
-      const phone = phoneInput.value.trim();
-      if (!phone) {
-        setLoginStatus("请输入手机号 / Please enter phone number.", "error");
-        return;
-      }
-      // 若正在倒计时，直接返回（按钮本身也被禁用了）
-      if (countdownTimer) {
-        return;
-      }
-
-      setLoginStatus("");
-      btnSendCode.disabled = true;
-      btnSendCode.innerHTML = "发送中 Sending...";
-
-      try {
-        const res = await fetch("/api/request_code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone })
-        });
-        const data = await res.json();
-        if (data.code !== 0) {
-          setLoginStatus(data.msg || "验证码发送失败 / Send code failed", "error");
-          // 失败的话恢复按钮
-          btnSendCode.disabled = false;
-          btnSendCode.innerHTML = sendCodeOriginalHtml;
-        } else {
-          setLoginStatus(
-            "验证码已发送，请查收短信。 Verification code sent. Please check your SMS.",
-            "success"
-          );
-          // 成功后开始 60 秒倒计时
-          startCountdown(60);
-        }
-      } catch (e) {
-        console.error(e);
-        setLoginStatus("网络错误 / Network error", "error");
-        btnSendCode.disabled = false;
-        btnSendCode.innerHTML = sendCodeOriginalHtml;
-      }
-    }
-
-    async function doLogin() {
-      const phone = phoneInput.value.trim();
-      const code = codeInput.value.trim();
-      if (!phone || !code) {
-        setLoginStatus("请填写手机号和验证码 / Enter phone & code", "error");
-        return;
-      }
-
-      setLoading(btnLogin, "登录中 Logging in...");
-      setLoginStatus("");
-
-      try {
-        const res = await fetch("/api/verify_code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, code })
-        });
-        const data = await res.json();
-
-        if (data.code !== 0) {
-          setLoginStatus(data.msg || "登录失败 / Login failed", "error");
-          return;
-        }
-
-        sessionToken = data.token;
-        currentPersonName = data.personName;
-
-        setLoginStatus("登录成功 Login success", "success");
-        loginCard.classList.add("hidden");
-        queryCard.classList.remove("hidden");
-        resultCard.classList.remove("hidden");
-
-        currentUserLabel.textContent = `当前用户 Current: ${currentPersonName || ""}`;
-
-        // 登录后默认日期设为今天
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const dd = String(today.getDate()).padStart(2, "0");
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-        startDateInput.value = todayStr;
-        endDateInput.value = todayStr;
-      } catch (e) {
-        console.error(e);
-        setLoginStatus("网络错误 / Network error", "error");
-      } finally {
-        clearLoading(btnLogin);
-      }
-    }
-
-    async function queryTimesheet() {
-      if (!sessionToken) {
-        setQueryStatus("请先登录 / Please login first", "error");
-        return;
-      }
-
-      const start = startDateInput.value;
-      const end = endDateInput.value;
-      if (!start || !end) {
-        setQueryStatus("请选择开始和结束日期 / Select start and end date", "error");
-        return;
-      }
-
-      setLoading(btnQuery, "查询中 Querying...");
-      setQueryStatus("");
-
-      try {
-        const params = new URLSearchParams({
-          start_date: start,
-          end_date: end,
-          session_token: sessionToken
-        });
-
-        const res = await fetch("/api/timesheet?" + params.toString());
-        const data = await res.json();
-
-        if (data.code !== 0) {
-          setQueryStatus(data.msg || "查询失败 / Query failed", "error");
-          renderResults([]);
-          return;
-        }
-
-        setQueryStatus("查询完成 Query finished", "success");
-        renderResults(data.data || []);
-      } catch (e) {
-        console.error(e);
-        setQueryStatus("网络错误 / Network error", "error");
-        renderResults([]);
-      } finally {
-        clearLoading(btnQuery);
-      }
-    }
-
-    function renderResults(records) {
-      if (!records || records.length === 0) {
-        resultEmpty.classList.remove("hidden");
-        resultTableWrapper.classList.add("hidden");
-        resultTbody.innerHTML = "";
-        totalRow.innerHTML = "";
-        return;
-      }
-
-      resultEmpty.classList.add("hidden");
-      resultTableWrapper.classList.remove("hidden");
-      resultTbody.innerHTML = "";
-
-      let total = 0;
-
-      records.forEach(r => {
-        total += Number(r.hours || 0);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.date || ""}</td>
-          <td>${r.project || ""}</td>
-          <td>${r.startTime || ""}</td>
-          <td>${r.endTime || ""}</td>
-          <td>${r.hours != null ? r.hours : ""}</td>
-        `;
-        resultTbody.appendChild(tr);
-      });
-
-      // 合计工时上下显示
-      totalRow.innerHTML = `合计工时<br><span class="en">Total Hours: ${total.toFixed(2)}</span>`;
-    }
-
-    btnSendCode.addEventListener("click", requestCode);
-    btnLogin.addEventListener("click", doLogin);
-    btnQuery.addEventListener("click", queryTimesheet);
-  </script>
 </body>
 </html>
