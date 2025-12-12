@@ -6,48 +6,51 @@
   <title>Lumi HVAC · Timesheet</title>
 
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-      background: #f4f6f8;
       margin: 0;
       padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f5f5;
       color: #111;
     }
 
-    /* ===== Logo ===== */
+    /* ===== Logo 区（与内容区拉开距离） ===== */
+    .logo-area {
+      padding-top: 28px;
+      padding-bottom: 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #eaeaea;
+    }
+
     .logo-wrap {
       display: flex;
       justify-content: center;
-      margin-top: 24px;
-      margin-bottom: 14px;
     }
 
     .logo-wrap img {
-      height: 78px;
+      height: 78px;       /* 仍为 1.5 倍大小 */
       max-width: 90%;
       object-fit: contain;
     }
 
     @media (max-width: 420px) and (orientation: portrait) {
-      .logo-wrap {
-        margin-top: 12px;
-        margin-bottom: 8px;
-      }
-      .logo-wrap img {
-        height: 70px;
-      }
+      .logo-area { padding-top: 24px; padding-bottom: 16px; }
+      .logo-wrap img { height: 70px; }
     }
 
+    /* ===== 内容区 ===== */
     .container {
       max-width: 420px;
       margin: 0 auto;
-      padding: 0 16px 32px;
+      padding: 18px 16px 32px;
     }
 
     h1 {
       text-align: center;
       font-size: 22px;
-      margin: 6px 0 4px;
+      margin: 8px 0 6px;
+      line-height: 1.2;
     }
 
     .subtitle {
@@ -55,6 +58,7 @@
       font-size: 14px;
       color: #666;
       margin-bottom: 20px;
+      line-height: 1.35;
     }
 
     .card {
@@ -70,48 +74,43 @@
       border-radius: 10px;
       border: none;
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;
       margin-top: 14px;
       cursor: pointer;
     }
 
+    /* ✅ 恢复蓝色主按钮 */
     .btn-primary {
-      background: #D89A2B;
-      color: #111;
+      background: #3370ff;
+      color: #fff;
     }
+    .btn-primary:active { background: #295ee0; }
 
-    .btn-primary:hover,
-    .btn-primary:active {
-      background: #C28722;
-    }
-
+    /* ✅ 灰色次按钮 */
     .btn-secondary {
-      background: #F3E6C8;
+      background: #e9ecef;
       color: #111;
     }
-
-    /* ===== 品牌色 focus（如果以后加输入框也直接生效） ===== */
-    input:focus {
-      border-color: #D89A2B;
-      box-shadow: 0 0 0 2px rgba(216,154,43,0.25);
-      outline: none;
-    }
+    .btn-secondary:active { background: #dde1e6; }
   </style>
 </head>
 
 <body>
-  <div class="logo-wrap">
-    <img src="/logo.png" alt="Lumi HVAC Ltd" />
+  <div class="logo-area">
+    <div class="logo-wrap">
+      <img src="/logo.png" alt="Lumi HVAC Ltd" />
+    </div>
   </div>
 
   <div class="container">
-    <h1>工时系统 · Timesheet</h1>
+    <h1>考勤入口 · Attendance</h1>
     <div class="subtitle">
       请选择操作 · Please select an action
     </div>
 
     <div class="card">
-      <button class="btn btn-primary" onclick="location.href='/form.html'">
+      <!-- ✅ New Entry 恢复为你提供的链接 -->
+      <button class="btn btn-primary" onclick="location.href='https://lumihvac.larksuite.com/share/base/form/shrus7qT5pD8wgfgGtz1hvod222'">
         新建 · New Entry
       </button>
 
