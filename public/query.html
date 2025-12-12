@@ -21,7 +21,7 @@
       padding: 18px 20px 28px;
     }
 
-    /* ===== Logo 区（与内容区拉开距离） ===== */
+    /* ===== Logo 区 ===== */
     .logo-area {
       padding-top: 28px;
       padding-bottom: 18px;
@@ -33,7 +33,7 @@
       justify-content: center;
     }
     .logo-wrap img {
-      height: 78px;     /* 仍为 1.5 倍 */
+      height: 78px;
       max-width: 90%;
       object-fit: contain;
     }
@@ -104,7 +104,7 @@
       background-clip: padding-box;
     }
 
-    /* ✅ 恢复蓝色 focus */
+    /* 蓝色 focus */
     input[type="date"]:focus,
     input[type="text"]:focus,
     input[type="tel"]:focus {
@@ -114,7 +114,7 @@
       outline: none;
     }
 
-    /* ===== 手机号 + 获取验证码 同一行 ===== */
+    /* 手机号 + 获取验证码 同一行 */
     .phone-row {
       display: grid;
       grid-template-columns: 1fr 120px;
@@ -127,7 +127,7 @@
       padding: 0;
       border: none;
       border-radius: 8px;
-      background: #3370ff;     /* ✅ 蓝色按钮 */
+      background: #3370ff;
       color: #fff;
       font-size: 14px;
       font-weight: 800;
@@ -136,11 +136,8 @@
     }
     .phone-row button:active { background: #295ee0; }
     .phone-row button:disabled { opacity: 0.65; cursor: not-allowed; }
-    @media (max-width: 360px) {
-      .phone-row { grid-template-columns: 1fr 105px; }
-    }
 
-    /* ===== 日期：Grid + 防 iOS 溢出 ===== */
+    /* 日期布局 */
     .row-inline {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -164,13 +161,13 @@
       box-shadow: 0 0 0 2px rgba(51,112,255,0.18);
     }
 
-    /* ===== Buttons ===== */
+    /* 主按钮 */
     button.primary {
       width: 100%;
       padding: 12px 14px;
       border: none;
       border-radius: 8px;
-      background: #3370ff;   /* ✅ 蓝色主按钮 */
+      background: #3370ff;
       color: #fff;
       font-size: 15px;
       font-weight: 800;
@@ -191,7 +188,6 @@
     .success { color: #188038; }
     .info { color: #555; }
 
-    /* ===== Table ===== */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -202,14 +198,10 @@
       background: #f0f2f5;
       padding: 8px;
       border-bottom: 2px solid #ddd;
-      line-height: 1.35;
-      text-align: left;
-      vertical-align: bottom;
     }
     td {
       padding: 10px 6px;
       border-bottom: 1px solid #eee;
-      line-height: 1.35;
       white-space: nowrap;
     }
     .total-row {
@@ -217,7 +209,6 @@
       margin-top: 12px;
       font-weight: 800;
       font-size: 14px;
-      line-height: 1.3;
     }
     .muted {
       text-align: center;
@@ -244,7 +235,7 @@
       查询您的个人工时记录 · View your personal working hours
     </div>
 
-    <!-- 登录卡片 -->
+    <!-- 登录 -->
     <div class="card" id="login-card">
       <div class="card-title">登录 Login</div>
 
@@ -252,7 +243,10 @@
         <label>手机号<br><span class="en">Phone</span></label>
         <div class="phone-row">
           <input id="phone-input" type="tel" placeholder="6041234567" />
-          <button id="btn-send-code">获取验证码<br><span class="en" style="color:#fff;">Send</span></button>
+          <!-- ✅ Get Code -->
+          <button id="btn-send-code">
+            获取验证码<br><span class="en" style="color:#fff;">Get Code</span>
+          </button>
         </div>
       </div>
 
@@ -261,12 +255,14 @@
         <input id="code-input" type="text" placeholder="6位数字 / 6-digit code" />
       </div>
 
-      <button id="btn-login" class="primary">登录 · Login</button>
+      <button id="btn-login" class="primary">
+        登录 · Login
+      </button>
 
       <div id="login-status" class="status info"></div>
     </div>
 
-    <!-- 查询条件 -->
+    <!-- 查询 -->
     <div class="card hidden" id="query-card">
       <div class="card-title">
         查询条件 Filter
@@ -319,7 +315,7 @@
 
     <div class="muted">
       本页面仅用于查询个人工时，如需协助请联系办公室。<br>
-      This page is for personal timesheet viewing only. Please contact the office if you need help.
+      This page is for personal timesheet viewing only.
     </div>
   </div>
 
@@ -349,7 +345,6 @@
     let sessionToken = null;
     let currentPersonName = null;
 
-    // 倒计时
     let countdownTimer = null;
     let countdownSeconds = 0;
     const sendCodeOriginalHtml = btnSendCode.innerHTML;
@@ -376,7 +371,7 @@
     }
 
     function updateCountdownText() {
-      btnSendCode.innerHTML = `重新获取(${countdownSeconds}s)<br><span class="en" style="color:#fff;">Resend</span>`;
+      btnSendCode.innerHTML = `重新获取(${countdownSeconds}s)<br><span class="en" style="color:#fff;">Get Code</span>`;
     }
 
     function startCountdown(seconds) {
@@ -425,7 +420,6 @@
           return;
         }
 
-        // ✅ 正式文案：不显示 debug_code
         setLoginStatus("验证码已发送，请查收短信。 Verification code sent. Please check your SMS.", "success");
         startCountdown(60);
 
@@ -444,7 +438,11 @@
         return;
       }
 
-      setLoading(btnLogin, "登录中...<br><span class='en'>Logging in...</span>");
+      /* ✅ 英文改为白色 */
+      setLoading(
+        btnLogin,
+        "登录中...<br><span class='en' style='color:#fff;'>Logging in...</span>"
+      );
       setLoginStatus("");
 
       try {
@@ -469,7 +467,6 @@
 
         currentUserLabel.textContent = `当前用户 Current: ${currentPersonName || ""}`;
 
-        // 默认今天
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -498,7 +495,7 @@
         return;
       }
 
-      setLoading(btnQuery, "查询中...<br><span class='en'>Querying...</span>");
+      setLoading(btnQuery, "查询中...<br><span class='en' style='color:#fff;'>Querying...</span>");
       setQueryStatus("");
 
       try {
