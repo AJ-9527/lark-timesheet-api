@@ -79,6 +79,10 @@
       border: 1px solid #ccc;
       outline: none;
       background: #fafafa;
+
+      display: block;
+      background-clip: padding-box;
+
     }
 
     input:focus {
@@ -88,10 +92,19 @@
 
     .row-inline {
       display: flex;
-      gap: 12px;
+      gap: 16px;          /* ✅ 两个日期框之间留更大空间 */
+      align-items: stretch;
     }
-
-    .row-inline > div { flex: 1; }
+    
+    .row-inline > div {
+      flex: 1 1 0;
+      min-width: 0;       /* ✅ 关键：防止 iOS date input 溢出 */
+    }
+    
+    .row-inline input[type="date"] {
+      max-width: 100%;    /* ✅ 防止超出容器 */
+      min-width: 0;       /* ✅ 配合上面 min-width:0 生效 */
+    }
 
     button {
       width: 100%;
@@ -371,7 +384,7 @@
           btnSendCode.innerHTML = sendCodeOriginalHtml;
         } else {
           setLoginStatus(
-            "验证码已发送（测试环境 debug_code: " + (data.debug_code || "******") + ")",
+            "验证码已发送，请查收短信。 Verification code sent. Please check your SMS.",
             "success"
           );
           // 成功后开始 60 秒倒计时
