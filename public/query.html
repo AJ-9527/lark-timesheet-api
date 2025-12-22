@@ -188,8 +188,8 @@
     .success { color: #188038; }
     .info { color: #555; }
 
+    /* ===== 表格基础样式 ===== */
     table {
-      width: 100%;
       border-collapse: collapse;
       font-size: 13px;
       margin-top: 10px;
@@ -198,12 +198,15 @@
       background: #f0f2f5;
       padding: 8px;
       border-bottom: 2px solid #ddd;
+      text-align: left;
+      vertical-align: bottom;
     }
     td {
       padding: 10px 6px;
       border-bottom: 1px solid #eee;
-      white-space: normal;
+      vertical-align: top;
     }
+
     .total-row {
       text-align: right;
       margin-top: 12px;
@@ -218,43 +221,34 @@
       line-height: 1.45;
     }
     .hidden { display: none; }
+
     /* =====================================================
-   【生产环境补丁】
-   解决：项目名过长导致页面横向撑变形（手机端）
-   保证：每条记录仍在同一行，其他功能不受影响
-   ===================================================== */
+       ✅ 横向滚动条方案（生产稳定版）
+       - 不再压缩列宽
+       - 不再截断日期
+       - 一行显示，左右滑动查看
+       ===================================================== */
+    #result-table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
-/* 表格外层允许横向滚动（但不撑破卡片） */
-#result-table-wrapper {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
+    #result-table-wrapper table {
+      width: max-content;     /* 关键：按内容自然展开 */
+      min-width: 100%;        /* 至少占满卡片宽度 */
+    }
 
-/* 固定表格布局，防止某一列无限拉伸 */
-#result-table-wrapper table {
-  width: 100%;
-  table-layout: fixed;
-}
+    #result-table-wrapper th,
+    #result-table-wrapper td {
+      white-space: nowrap;    /* 关键：保持单行，完整可读 */
+    }
 
-/* 所有单元格基础裁剪 */
-#result-table-wrapper th,
-#result-table-wrapper td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ✅ 项目 Project 列：允许自动换行 */
-#result-table-wrapper th:nth-child(2),
-#result-table-wrapper td:nth-child(2) {
-  white-space: normal !important;
-  word-break: break-word;
-}
-
-/* ✅ 其他列：强制保持单行 */
-#result-table-wrapper th:not(:nth-child(2)),
-#result-table-wrapper td:not(:nth-child(2)) {
-  white-space: nowrap;
-}
+    .scroll-hint{
+      text-align:center;
+      font-size:12px;
+      color:#888;
+      margin-top:8px;
+    }
   </style>
 </head>
 
@@ -280,7 +274,6 @@
         <label>手机号<br><span class="en">Phone</span></label>
         <div class="phone-row">
           <input id="phone-input" type="tel" placeholder="6041234567" />
-          <!-- ✅ Get Code -->
           <button id="btn-send-code">
             获取验证码<br><span class="en" style="color:#fff;">Get Code</span>
           </button>
@@ -346,6 +339,9 @@
           </thead>
           <tbody id="result-tbody"></tbody>
         </table>
+
+        <div class="scroll-hint">← 左右滑动查看完整内容 →</div>
+
         <div id="total-row" class="total-row"></div>
       </div>
     </div>
@@ -475,7 +471,6 @@
         return;
       }
 
-      /* ✅ 英文改为白色 */
       setLoading(
         btnLogin,
         "登录中...<br><span class='en' style='color:#fff;'>Logging in...</span>"
