@@ -202,7 +202,7 @@
     td {
       padding: 10px 6px;
       border-bottom: 1px solid #eee;
-      white-space: nowrap;
+      white-space: normal;
     }
     .total-row {
       text-align: right;
@@ -218,6 +218,43 @@
       line-height: 1.45;
     }
     .hidden { display: none; }
+    /* =====================================================
+   【生产环境补丁】
+   解决：项目名过长导致页面横向撑变形（手机端）
+   保证：每条记录仍在同一行，其他功能不受影响
+   ===================================================== */
+
+/* 表格外层允许横向滚动（但不撑破卡片） */
+#result-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 固定表格布局，防止某一列无限拉伸 */
+#result-table-wrapper table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* 所有单元格基础裁剪 */
+#result-table-wrapper th,
+#result-table-wrapper td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ✅ 项目 Project 列：允许自动换行 */
+#result-table-wrapper th:nth-child(2),
+#result-table-wrapper td:nth-child(2) {
+  white-space: normal !important;
+  word-break: break-word;
+}
+
+/* ✅ 其他列：强制保持单行 */
+#result-table-wrapper th:not(:nth-child(2)),
+#result-table-wrapper td:not(:nth-child(2)) {
+  white-space: nowrap;
+}
   </style>
 </head>
 
