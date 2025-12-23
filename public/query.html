@@ -213,6 +213,7 @@
       font-weight: 800;
       font-size: 14px;
     }
+
     .muted {
       text-align: center;
       color: #888;
@@ -223,31 +224,59 @@
     .hidden { display: none; }
 
     /* =====================================================
-       ✅ 横向滚动条方案（生产稳定版）
-       - 不再压缩列宽
-       - 不再截断日期
-       - 一行显示，左右滑动查看
+       ✅ 结果区：只滚动表格，合计固定，日期列固定
        ===================================================== */
-    #result-table-wrapper {
+
+    /* 只让“表格本体”横向滚动 */
+    #result-table-scroll {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
 
-    #result-table-wrapper table {
-      width: max-content;     /* 关键：按内容自然展开 */
-      min-width: 100%;        /* 至少占满卡片宽度 */
+    /* 表格按内容自然展开，装不下就滚动 */
+    #result-table-scroll table {
+      width: max-content;
+      min-width: 100%;
     }
 
-    #result-table-wrapper th,
-    #result-table-wrapper td {
-      white-space: nowrap;    /* 关键：保持单行，完整可读 */
+    /* 所有列默认一行显示（更像“表格”） */
+    #result-table-scroll th,
+    #result-table-scroll td {
+      white-space: nowrap;
     }
 
-    .scroll-hint{
-      text-align:center;
-      font-size:12px;
-      color:#888;
-      margin-top:8px;
+    /* ✅ 日期列固定（左侧 sticky） */
+    #result-table-scroll th:nth-child(1),
+    #result-table-scroll td:nth-child(1) {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #ffffff; /* td 背景 */
+      min-width: 108px;
+    }
+
+    /* 表头日期列背景要和 th 一致 */
+    #result-table-scroll thead th:nth-child(1) {
+      background: #f0f2f5;
+      z-index: 4;
+    }
+
+    /* 给 sticky 列加一个轻微分隔线，视觉更清晰 */
+    #result-table-scroll th:nth-child(1),
+    #result-table-scroll td:nth-child(1) {
+      box-shadow: 1px 0 0 rgba(0,0,0,0.06);
+    }
+
+    /* 横滑提示 */
+    .scroll-hint {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+    }
+    .scroll-hint .en {
+      display: block;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -327,21 +356,29 @@
       </div>
 
       <div id="result-table-wrapper" class="hidden">
-        <table>
-          <thead>
-            <tr>
-              <th>日期<br><span class="en">Date</span></th>
-              <th>项目<br><span class="en">Project</span></th>
-              <th>上班<br><span class="en">Start</span></th>
-              <th>下班<br><span class="en">End</span></th>
-              <th>工时<br><span class="en">Hours</span></th>
-            </tr>
-          </thead>
-          <tbody id="result-tbody"></tbody>
-        </table>
+        <!-- ✅ 只滚动表格 -->
+        <div id="result-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>日期<br><span class="en">Date</span></th>
+                <th>项目<br><span class="en">Project</span></th>
+                <th>上班<br><span class="en">Start</span></th>
+                <th>下班<br><span class="en">End</span></th>
+                <th>工时<br><span class="en">Hours</span></th>
+              </tr>
+            </thead>
+            <tbody id="result-tbody"></tbody>
+          </table>
+        </div>
 
-        <div class="scroll-hint">← 左右滑动查看完整内容 →</div>
+        <div class="scroll-hint">
+          ← 左右滑动查看完整内容 →<br>
+          <span class="en">← Swipe left/right to view full content →</span>
+        </div>
 
+
+        <!-- ✅ 合计固定：放在滚动容器外 -->
         <div id="total-row" class="total-row"></div>
       </div>
     </div>
